@@ -2,9 +2,9 @@
 This repo is the experimental workbench for paper
 
 ```
-Network-Based Computational Modeling to Unravel
-Gene Essentiality. I. GRANATA et al.
-To appear in BIOMAT2022
+Network-Based Computational Modeling to Unravel Gene Essentiality. 
+I. Granata et al.
+To appear in BIOMAT2022 keynote
 ```
 
 # How to reproduce experiments
