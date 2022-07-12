@@ -1,15 +1,15 @@
 # BIOMAT2022
 This repo is the experimental workbench for paper
 
----
+```
 Network-Based Computational Modeling to Unravel
 Gene Essentiality. I. GRANATA et al.
-To appear in BIOMAt2022
----
+To appear in BIOMAT2022
+```
 
-# How to reproduce experimentrs
+# How to reproduce experiments
 
-Just open the `BIOMAT2022_workbench.ipynb` notebook and click on the Google cColab launch button.
+Just open the `BIOMAT2022_workbench.ipynb` notebook and click on the Google Colab launch button.
 
 # Results
 
@@ -17,16 +17,16 @@ Just open the `BIOMAT2022_workbench.ipynb` notebook and click on the Google cCol
 
 #### BIO+GTEX
 
-|     |   Accuracy |       BA |   Sensitivity |   Specificity |      MCC | CM            |
-|-----+------------+----------+---------------+---------------+----------+---------------|
-| LGBM |   0.904825 | 0.819903 |      0.680537 |      0.959269 | 0.68234 | [[ 507  238]  |
-|      |            |          |               |               |         |  [ 125 2944]] |
-| XGB |   0.895646 | 0.806577 |      0.660403 |      0.952751 | 0.651845 | [[ 492  253]  |
-|     |            |          |               |               |          |  [ 145 2924]] |
-| MLP |   0.855275 | 0.690011 |      0.418792 |      0.961229 | 0.475601 | [[ 312  433]  |
-|     |            |          |               |               |          |  [ 119 2950]] |
-| RF |   0.879919 | 0.727178 |       0.47651 |      0.977846 | 0.574159 | [[ 355  390]  |
-|    |            |          |               |               |          |  [  68 3001]] |
+|      |  Accuracy  |       BA |   Sensitivity |   Specificity |      MCC | CM            |
+|------+------------+----------+---------------+---------------+----------+---------------|
+| LGBM |   0.904825 | 0.819903 |      0.680537 |      0.959269 | 0.68234  | [[ 507  238]  |
+|      |            |          |               |               |          |  [ 125 2944]] |
+| XGB  |   0.895646 | 0.806577 |      0.660403 |      0.952751 | 0.651845 | [[ 492  253]  |
+|      |            |          |               |               |          |  [ 145 2924]] |
+| MLP  |   0.855275 | 0.690011 |      0.418792 |      0.961229 | 0.475601 | [[ 312  433]  |
+|      |            |          |               |               |          |  [ 119 2950]] |
+| RF   |   0.879919 | 0.727178 |       0.47651 |      0.977846 | 0.574159 | [[ 355  390]  |
+|      |            |          |               |               |          |  [  68 3001]] |
 
 #### BIO+GTEX+Node2Vec
 
