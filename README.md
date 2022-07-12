@@ -13,6 +13,20 @@ Just open the `BIOMAT2022_workbench.ipynb` notebook and click on the Google Cola
 
 # Results
 
+## Gene labeling
+
+By using the label `label_CS_ACH_most_freq`, we consdered Essential the
+genes having  `label_CS_ACH_most_freq==CS0`, and Non Essential the genes with `label_CS_ACH_most_freq` in `[CS6, ..., CS9]`.
+
+
+Thus, not all genes will be labeled. Of 12538 total genes, 3814 are labelled.
+
+Gene biological (BIO and GTEX) attributes are normalized by Z-score.
+Gene topological attributes are computed by karateclub node embedding methods.
+Embedding dimension is 128. Embedding are computed on the entire network (PPI, MET or integrated). Once the embedding vector si produced for each genes, only those corresponding to labelled genes are selected for training of the classifier method.
+
+Reported metrics are related to a stratified 5-fold cross validation on the set of labelled genes.
+
 ## PPI network
 
 #### BIO+GTEX
