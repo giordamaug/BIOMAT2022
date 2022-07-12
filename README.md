@@ -27,6 +27,8 @@ Embedding dimension is 128. Embedding are computed on the entire network (PPI, M
 
 Reported metrics are related to a stratified 5-fold cross validation on the set of labelled genes.
 
+Anyway you can run experiments on other labeling methods, such as `avana0`, `avana10`, `EPGAT_OGEE`, and `sanger_OGEE `.
+
 # Results
 
 ## PPI network
