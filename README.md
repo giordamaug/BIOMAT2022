@@ -11,7 +11,7 @@ To appear in BIOMAT2022
 
 Just open the `BIOMAT2022_workbench.ipynb` notebook and click on the Google Colab launch button.
 
-# Results
+# Experimental Study
 
 ## Gene labeling
 
@@ -26,6 +26,8 @@ Gene topological attributes are computed by karateclub node embedding methods.
 Embedding dimension is 128. Embedding are computed on the entire network (PPI, MET or integrated). Once the embedding vector si produced for each genes, only those corresponding to labelled genes are selected for training of the classifier method.
 
 Reported metrics are related to a stratified 5-fold cross validation on the set of labelled genes.
+
+# Results
 
 ## PPI network
 
