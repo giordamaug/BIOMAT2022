@@ -147,10 +147,10 @@ for col in x.columns[x.isna().any()].tolist():
   else:                             # otherwise, if the mean is NaN, remove the column
     x = x.drop(col, 1)
 if normalize_node == 'minmax':
-  print(bcolors.OKGREEN + "\tX attributes normalization (minmax)..." + bcolors.ENDC)
+  print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
   x = (x-x.min())/(x.max()-x.min())
 elif normalize_node == 'zscore':
-  print(bcolors.OKGREEN + "\tX attributes normalization (zscore)..." + bcolors.ENDC)
+  print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
   x = (x-x.mean())/x.std()
 x = x.loc[selectedgenes]
 print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
@@ -185,7 +185,7 @@ if "EMBED" in args.attributes:
   print(f'Embedding with method "{embeddername}"...')
   embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}.csv')
   if args.loadembedding:
-    print(bcolors.OKGREEN + f'\tLoading embedding from file "{embedfilename}"' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
     embedding_df = pd.read_csv(embedfilename, index_col=0)
   else:
     embedder = globals()[embeddername]()
