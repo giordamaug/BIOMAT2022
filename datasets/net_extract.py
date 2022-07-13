@@ -13,3 +13,4 @@ df_net.loc[df_net["IsMetabolic"]].drop(columns=['IsPhysical', 'IsMetabolic', 'li
 df_net.loc[df_net["IsPhysical"]].drop(columns=['IsPhysical', 'IsMetabolic','link']).to_csv("ppi_edges.csv", index=False)
 df_net.drop(columns=['IsPhysical', 'IsMetabolic', 'link']).to_csv("met+ppi_edges.csv")
 print(df_net)
+
