@@ -65,10 +65,7 @@ import pandas as pd
 import networkx as nx
 import os
 
-#datapath = "/content/drive/MyDrive/CDS-GROUP-ROOT/BIOMAT2022/datasets" #@param {type:"string"}
 datapath = args.datadir
-df_net = pd.read_csv(os.path.join(datapath,f'{network.lower()}_edges.csv'))
-df_net
 
 """# Read the labels
 Load the label file, select the label type, and print label distribution
@@ -165,12 +162,13 @@ The PPI networks is loaded from a CSV file, where
 
 if "EMBED" in args.attributes:
   import networkx as nx
+  df_net = pd.read_csv(os.path.join(datapath,f'{network.lower()}_edges.csv'), index_col=0)
   print(f'Loading "{network}" network...')
   edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
-  if network == "MET":
-    G = nx.DiGraph()
-  else:
+  if network == "PPI":
     G = nx.Graph()
+  else:
+    G = nx.DiGraph()
   G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
   G.add_weighted_edges_from(edge_list)                                      # add all edges
   print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
