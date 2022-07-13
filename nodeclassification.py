@@ -188,7 +188,7 @@ if "EMBED" in args.attributes:
     print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
     embedding_df = pd.read_csv(embedfilename, index_col=0)
   else:
-    embedder = globals()[embeddername](dimensions = 128)
+    embedder = globals()[embeddername]()
     embedder.fit(G)
     embedding = embedder.get_embedding()
     embedding_df = pd.DataFrame(embedding, columns = [f'{embeddername}_' + str(i + 1)  for i in range(embedding.shape[1])])
