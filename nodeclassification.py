@@ -176,7 +176,7 @@ if "EMBED" in args.attributes:
   print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
   print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_directed(G) else "is not"} directed' + bcolors.ENDC)
 
-  """# Network embedding with Karateclub"""
+  """# Network embedding with Karateclub""" 
 
   from karateclub.node_embedding import *
   embeddername = args.embedder #@param ["RandNE", "Node2Vec", "GLEE", "DeepWalk"]
