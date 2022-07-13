@@ -180,7 +180,7 @@ if "EMBED" in args.attributes:
 
   from karateclub.node_embedding import *
   embeddername = args.embedder #@param ["RandNE", "Node2Vec", "GLEE", "DeepWalk"]
-  if not embeddername in dir("karateclub.node_embedding"):
+  if not embeddername in dir():
     raise Exception(bcolors.FAIL + f"{embeddername} is not an embedding method supported in karateclub" + bcolors.ENDC)
   print(f'Embedding with method "{embeddername}"...')
   embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}.csv')
