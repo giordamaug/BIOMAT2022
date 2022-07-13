@@ -29,7 +29,7 @@ parser.add_argument('-E', "--essentials", dest='E_class', metavar='<essential-gr
 parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-essential-groups>', nargs="+", default=["CS6", "CS7","CS8","CS9"], help='CS groups of non essential genes (default:  CS6 CS7 CS8 CS9], range: [CS0,...,CS9]', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
-parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE)', choices=['RandNE', 'Node2Vec', 'GLEE', 'DeepWalk', 'HOPE'], default='RandNE', required=False)
+parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'SVM', 'XGB', 'LGBM', 'MLP'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
@@ -180,6 +180,8 @@ if "EMBED" in args.attributes:
 
   from karateclub.node_embedding import *
   embeddername = args.embedder #@param ["RandNE", "Node2Vec", "GLEE", "DeepWalk"]
+  if not embeddername in dir("karateclub.node_embedding"):
+    raise Exception(bcolors.FAIL + f"{embeddername} is not an embedding method supported in karateclub" + bcolors.ENDC)
   print(f'Embedding with method "{embeddername}"...')
   embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}.csv')
   if args.loadembedding:
