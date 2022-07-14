@@ -20,8 +20,11 @@ class bcolors:
     
 import argparse
 from operator import index
+import numpy as np
+
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "GTEX", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
+parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[np.nan], help='labels to exclude (default NaN, values any list)', required=False)
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>', type=str, help='label name (default label_CS_ACH_most_freq)', default='label_CS_ACH_most_freq', required=False)
@@ -30,7 +33,7 @@ parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-esse
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'SVM', 'XGB', 'LGBM', 'MLP'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
@@ -46,7 +49,6 @@ classifier_map = {'RF' : 'RandomForestClassifier',
 import warnings
 warnings.filterwarnings('ignore')
 import random
-import numpy as np
 import pandas as pd
 def set_seed(seed=1):
     random.seed(seed)
@@ -95,7 +97,7 @@ if labelname == "label_CS_ACH_most_freq":
                                         else 'NE' if row[labelname] in args.NE_class \
                                         else 'ND', axis=1)
     labelname = new_label_name
-exclude_labels = ['ND', np.nan]
+exclude_labels = args.excludelabels
 df_label = df_label[df_label[labelname].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
 distrib = Counter(df_label[labelname].values)
 selectedgenes = df_label['name'].values
@@ -164,13 +166,15 @@ if "EMBED" in args.attributes:
   import networkx as nx
   df_net = pd.read_csv(os.path.join(datapath,f'{network.lower()}_edges.csv'), index_col=0)
   print(f'Loading "{network}" network...')
-  edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+  #edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+  edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
   if network == "PPI":
     G = nx.Graph()
   else:
     G = nx.DiGraph()
   G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
-  G.add_weighted_edges_from(edge_list)                                      # add all edges
+  #G.add_weighted_edges_from(edge_list)                                      # add all edges
+  G.add_edges_from(edge_list)                                      # add all edges
   print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
   print(bcolors.OKGREEN + f'\tThere are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
   print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
@@ -230,7 +234,7 @@ kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
 X = x.to_numpy()
 
-clf = globals()[classifier_map[args.method]](random_state=seed)
+clf = globals()[classifier_map[args.method]]()
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
@@ -238,7 +242,7 @@ predictions = np.array([])
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
 print(f'Classification with method "{method}"...')
-#for fold, (train_idx, test_idx) in enumerate(kf.split(np.arange(len(X)), y)):
+#print(bcolors.OKGREEN + f'\tmethod hyperparams {clf.get_params()}' + bcolors.ENDC)
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
