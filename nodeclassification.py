@@ -33,7 +33,7 @@ parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-esse
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
@@ -43,6 +43,7 @@ args = parser.parse_args()
 classifier_map = {'RF' : 'RandomForestClassifier', 
                   'MLP': 'MLPClassifier', 
                   'SVM' : 'SVC', 
+                  'RUS':  'RUSBoostClassifier',
                   'XGB': 'XGBClassifier',
                   'LGBM': 'LGBMClassifier'}
 
