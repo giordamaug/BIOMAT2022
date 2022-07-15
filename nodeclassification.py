@@ -167,8 +167,8 @@ if "EMBED" in args.attributes:
   import networkx as nx
   df_net = pd.read_csv(os.path.join(datapath,f'{network.lower()}_edges.csv'), index_col=0)
   print(f'Loading "{network}" network...')
-  #edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
-  edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+  edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+  #edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
   if network == "PPI":
     G = nx.Graph()
   else:
