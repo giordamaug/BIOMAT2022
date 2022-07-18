@@ -259,9 +259,12 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
     scores = scores.append(pd.DataFrame([[accuracy_score(test_y, preds), balanced_accuracy_score(test_y, preds), 
         cm[0,0]/(cm[0,0]+cm[0,1]), cm[1,1]/(cm[1,0]+cm[1,1]), 
         matthews_corrcoef(test_y, preds), cm]], columns=columns_names, index=[fold]))
-df_scores = pd.DataFrame(f'{scores.mean(axis=0):.2f}±{scores.std(axis=0):.2f}').T
+dfm_scores = pd.DataFrame(scores.mean(axis=0)).T
+dfs_scores = pd.DataFrame(scores.std(axis=0)).T
+df_scores = pd.DataFrame([f'{row[0]:.3f}±{row[1]:.3f}' for row in pd.concat([dfm_scores,dfs_scores], axis=0).T.values.tolist()]).T
 df_scores.index=[f'{method}']
 df_scores['CM'] = [cma]
+df_scores.columns = columns_names
 disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.inverse_transform(clf.classes_))
 disp.plot()
 plt.show() if args.display else None
