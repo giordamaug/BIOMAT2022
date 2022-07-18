@@ -38,7 +38,7 @@ parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
-parser.add_argument('-W', "--weighted", action='store_true', required=False)
+parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
 classifier_map = {'RF' : 'RandomForestClassifier', 
@@ -168,17 +168,15 @@ if "EMBED" in args.attributes:
   import networkx as nx
   df_net = pd.read_csv(os.path.join(datapath,f'{network.lower()}_edges.csv'), index_col=0)
   print(f'Loading "{network}" network...')
+  #edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+  edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
   if network == "PPI":
     G = nx.Graph()
   else:
     G = nx.DiGraph()
   G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
-  if args.weighted:
-     edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
-     G.add_weighted_edges_from(edge_list)                                      # add all edges (weighted)
-  else:
-     edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
-     G.add_edges_from(edge_list)                                               # add all edges (unweighted)
+  #G.add_weighted_edges_from(edge_list)                                      # add all edges
+  G.add_edges_from(edge_list)                                      # add all edges
   print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
   print(bcolors.OKGREEN + f'\tThere are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
   print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
@@ -237,6 +235,10 @@ nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
 X = x.to_numpy()
+if args.tocsv:
+  newd = x.copy()
+  newd['class'] = y
+  newd.to_csv(os.path.join(datapath,'eg.csv'), index=False)
 
 clf = globals()[classifier_map[args.method]]()
 nclasses = len(classes_mapping)
