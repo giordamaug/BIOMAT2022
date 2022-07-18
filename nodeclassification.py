@@ -38,6 +38,7 @@ parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
+parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
 classifier_map = {'RF' : 'RandomForestClassifier', 
@@ -234,6 +235,10 @@ nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
 X = x.to_numpy()
+if args.tocsv:
+  newd = x.copy()
+  newd['class'] = y
+  newd.to_csv(os.path.join(datapath,'eg.csv'), index=False)
 
 clf = globals()[classifier_map[args.method]]()
 nclasses = len(classes_mapping)
