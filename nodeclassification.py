@@ -25,6 +25,7 @@ import numpy as np
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "GTEX", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
 parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[np.nan], help='labels to exclude (default NaN, values any list)', required=False)
+parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default None, values any list)', required=False)
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>', type=str, help='label name (default label_CS_ACH_most_freq)', default='label_CS_ACH_most_freq', required=False)
@@ -140,6 +141,8 @@ bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in ar
 gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
 print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
 x = x.filter(items=bio_attributes+gtex_attributes)
+if args.onlyattributes is not None:
+	x = x.filter(items=args.onlyattributes)
 print(bcolors.OKGREEN + f'\tfound {x.isnull().sum().sum()} NaN values and {np.isinf(x).values.sum()} Infinite values' + bcolors.ENDC)
 for col in x.columns[x.isna().any()].tolist():
   mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
