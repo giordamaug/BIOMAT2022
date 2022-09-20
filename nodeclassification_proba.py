@@ -255,7 +255,8 @@ print(f'Classification with method "{method}"...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
-    preds = clf.fit(train_x, train_y).predict(test_x)
+    probs = clf.fit(train_x, train_y).pred_proba(test_x)
+    preds = np.where(probs > 0.5, 1, 0)
     cm = confusion_matrix(test_y, preds)
     cma += cm.astype(int)
     predictions = np.concatenate((predictions, preds))
