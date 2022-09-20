@@ -275,6 +275,7 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
-df_results = pd.DataFrame({ 'gene': selectedgenes, 'E_prob': probabilities, 'prediction': predictions})
+df_results = pd.DataFrame({ 'gene': selectedgenes, 'label': df_label['label_CS_ACH_most_freq'].values, 'E_prob': probabilities, 'prediction': predictions})
 df_results = df_results.set_index(['gene'])
+df_results.to_csv('results.csv')
 print(df_results)
