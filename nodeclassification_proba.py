@@ -256,12 +256,12 @@ print(f'Classification with method "{method}"...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
-    probs = clf.fit(train_x, train_y).pred_proba(test_x)
-    preds = np.where(probs > 0.5, 1, 0)
+    probs = clf.fit(train_x, train_y).predict_proba(test_x)
+    preds = np.argmax(probs, axis=1)
     cm = confusion_matrix(test_y, preds)
     cma += cm.astype(int)
     predictions = np.concatenate((predictions, preds))
-    probabilities = np.concatenate((probabilities, probs))
+    probabilities = np.concatenate((probabilities, probs[:, 0]))
     scores = scores.append(pd.DataFrame([[accuracy_score(test_y, preds), balanced_accuracy_score(test_y, preds), 
         cm[0,0]/(cm[0,0]+cm[0,1]), cm[1,1]/(cm[1,0]+cm[1,1]), 
         matthews_corrcoef(test_y, preds), cm]], columns=columns_names, index=[fold]))
@@ -275,4 +275,6 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
-print(probabilities)
+df_results = pd.DataFrame({ 'gene': selectedgenes, 'E_prob': probabilities, 'prediction': predictions})
+df_results = df_results.set_index(['gene'])
+print(df_results)
