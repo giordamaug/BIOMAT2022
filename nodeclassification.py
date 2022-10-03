@@ -34,6 +34,7 @@ parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-esse
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
+parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
@@ -192,12 +193,12 @@ if "EMBED" in args.attributes:
   if not embeddername in dir():
     raise Exception(bcolors.FAIL + f"{embeddername} is not an embedding method supported in karateclub" + bcolors.ENDC)
   print(f'Embedding with method "{embeddername}"...')
-  embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}.csv')
+  embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}_{args.embedsize}.csv')
   if args.loadembedding:
     print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
     embedding_df = pd.read_csv(embedfilename, index_col=0)
   else:
-    embedder = globals()[embeddername]()
+    embedder = globals()[embeddername](dimensions=args.embedsize)
     embedder.fit(G)
     embedding = embedder.get_embedding()
     embedding_df = pd.DataFrame(embedding, columns = [f'{embeddername}_' + str(i + 1)  for i in range(embedding.shape[1])])
