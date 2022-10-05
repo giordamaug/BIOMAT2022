@@ -29,6 +29,8 @@ parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<o
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>', type=str, help='label name (default label_CS_ACH_most_freq)', default='label_CS_ACH_most_freq', required=False)
+parser.add_argument('-F', "--labelfile", dest='labelfile', metavar='<labelfile>', type=str, help='label filename (default multiLabels.csv)', default='multiLabels.csv', required=False)
+parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', type=str, help='attribute filename (default integratedNet_nodes_bio.csv)', default='integratedNet_nodes_bio.csv', required=False)
 parser.add_argument('-E', "--essentials", dest='E_class', metavar='<essential-groups>', nargs="+", default=["CS0"], help='CS groups of essential genes (default: CS0, range: [CS0,...,CS9]', required=False)
 parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-essential-groups>', nargs="+", default=["CS6", "CS7","CS8","CS9"], help='CS groups of non essential genes (default:  CS6 CS7 CS8 CS9], range: [CS0,...,CS9]', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
