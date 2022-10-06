@@ -129,36 +129,41 @@ At the end, only nodes (genes) with E or NE labels are selected for the classifi
 import re
 r = re.compile('^GTEX*')
 
-normalize_node = args.normalize #@param ["", "zscore", "minmax"]
-attr_file = os.path.join(datapath,args.attrfile)
-print(f'Loading attribute matrix "{attr_file}"...')
-x = pd.read_csv(attr_file)
-x = x.drop(columns=['id']) if 'id' in list(x.columns) else x
-gtex_attributes = list(filter(r.match, x.columns)) 
-bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in args.attributes else []
-gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
-print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
-x = x.filter(items=bio_attributes+gtex_attributes)
-if args.onlyattributes is not None:
-	x = x.filter(items=args.onlyattributes)
-print(bcolors.OKGREEN + f'\tfound {x.isnull().sum().sum()} NaN values and {np.isinf(x).values.sum()} Infinite values' + bcolors.ENDC)
-for col in x.columns[x.isna().any()].tolist():
-  mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
-  if mean_value is not np.nan:
-    x[col].fillna(value=mean_value, inplace=True)
-  else:                             # otherwise, if the mean is NaN, remove the column
-    x = x.drop(col, 1)
-if normalize_node == 'minmax':
-  print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
-  x = (x-x.min())/(x.max()-x.min())
-elif normalize_node == 'zscore':
-  print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
-  x = (x-x.mean())/x.std()
-selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
-print(bcolors.OKGREEN + f'\tgenes with attributes are {len(selectedgenes)}' + bcolors.ENDC)
-x = x.loc[selectedgenes]
-x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
-print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+if "BIO" in args.attributes or "GTEX" in args.attributes:
+  normalize_node = args.normalize #@param ["", "zscore", "minmax"]
+  attr_file = os.path.join(datapath,args.attrfile)
+  print(f'Loading attribute matrix "{attr_file}"...')
+  x = pd.read_csv(attr_file)
+  x = x.drop(columns=['id']) if 'id' in list(x.columns) else x
+  gtex_attributes = list(filter(r.match, x.columns)) 
+  bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in args.attributes else []
+  gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
+  print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
+  x = x.filter(items=bio_attributes+gtex_attributes)
+  if args.onlyattributes is not None:
+  	x = x.filter(items=args.onlyattributes)
+  print(bcolors.OKGREEN + f'\tfound {x.isnull().sum().sum()} NaN values and {np.isinf(x).values.sum()} Infinite values' + bcolors.ENDC)
+  for col in x.columns[x.isna().any()].tolist():
+    mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
+    if mean_value is not np.nan:
+      x[col].fillna(value=mean_value, inplace=True)
+    else:                             # otherwise, if the mean is NaN, remove the column
+      x = x.drop(col, 1)
+  if normalize_node == 'minmax':
+    print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
+    x = (x-x.min())/(x.max()-x.min())
+  elif normalize_node == 'zscore':
+    print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
+    x = (x-x.mean())/x.std()
+  selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
+  print(bcolors.OKGREEN + f'\tgenes with attributes are {len(selectedgenes)}' + bcolors.ENDC)
+  x = x.loc[selectedgenes]
+  x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
+  print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+else:
+  x = pd.DataFrame()
+
+# print label distribution
 labels = df_label.set_index('name').loc[selectedgenes][labelname].values
 distrib = Counter(labels)
 encoder = preprocessing.LabelEncoder()
