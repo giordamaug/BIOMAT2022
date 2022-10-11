@@ -48,12 +48,23 @@ parser.add_argument('-X', "--display", action='store_true', required=False)
 parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
+seed=1
+
 classifier_map = {'RF' : 'RandomForestClassifier', 
                   'MLP': 'MLPClassifier', 
                   'SVM' : 'SVC', 
                   'RUS':  'RUSBoostClassifier',
                   'XGB': 'XGBClassifier',
                   'LGBM': 'LGBMClassifier'}
+
+classifiers_args = {
+  'RF' : {'random_state' : seed}, 
+  'MLP': {}, 
+  'SVM' : {}, 
+  'RUS': {'random_state' : seed},
+  'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
+  'LGBM': {},
+}
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -99,13 +110,11 @@ df_label = df_label.reset_index()                                               
 df_label['index'] = df_label.index
 gene2idx_mapping = { v[1] : v[0]  for v in df_label[['index', 'name']].values }             # create mapping index by gene name
 idx2gene_mapping = { v[0] : v[1]  for v in df_label[['index', 'name']].values }             # create mapping index by gene name
-if labelname == "label_CS_ACH_most_freq" or labelname == "label":
-    #_class, NE_class = ['CS0'], ['CS6', 'CS7', 'CS8', 'CS9']
-    new_label_name = 'CS0_vs_CS6-9'
-    df_label[new_label_name] = df_label.apply(lambda row: 'E' if row[labelname] in args.E_class \
+new_label_name = 'CS0_vs_CS6-9'
+df_label[new_label_name] = df_label.apply(lambda row: 'E' if row[labelname] in args.E_class \
                                         else 'NE' if row[labelname] in args.NE_class \
                                         else 'ND', axis=1)
-    labelname = new_label_name
+labelname = new_label_name
 exclude_labels = args.excludelabels
 df_label = df_label[df_label[labelname].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
 selectedgenes = df_label['name'].values
@@ -252,7 +261,6 @@ from imblearn.ensemble import RUSBoostClassifier
 from sklearn.dummy import DummyClassifier
 from lightgbm import LGBMClassifier
 from tabulate import tabulate
-seed=1
 set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
@@ -263,7 +271,7 @@ if args.tocsv:
   newd['class'] = y
   newd.to_csv(os.path.join(datapath,'eg.csv'), index=False)
 
-clf = globals()[classifier_map[args.method]]()
+clf = globals()[classifier_map[args.method]](**classifiers_args[args.method])
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
@@ -271,7 +279,6 @@ predictions = np.array([])
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
 print(f'Classification with method "{method}"...')
-#print(bcolors.OKGREEN + f'\tmethod hyperparams {clf.get_params()}' + bcolors.ENDC)
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
