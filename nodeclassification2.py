@@ -43,6 +43,7 @@ parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>'
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
+parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
 parser.add_argument('-D', "--tocsv", action='store_true', required=False)
@@ -58,12 +59,12 @@ classifier_map = {'RF' : 'RandomForestClassifier',
                   'LGBM': 'LGBMClassifier'}
 
 classifiers_args = {
-  'RF' : {'random_state' : seed}, 
-  'MLP': {}, 
-  'SVM' : {}, 
+  'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
+  'MLP': {'random_state' : seed}, 
+  'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
   'RUS': {'random_state' : seed},
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
-  'LGBM': {},
+  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
 }
 
 import warnings
@@ -193,26 +194,6 @@ The PPI networks is loaded from a CSV file, where
 """
 
 if "EMBED" in args.attributes:
-  import networkx as nx
-  netfile = os.path.join(datapath,args.netfile)
-  df_net = pd.read_csv(netfile, index_col=0)
-  print(f'Loading "{network}" network file "{netfile}" ...')
-  if network == "PPI":
-    G = nx.Graph()
-  else:
-    G = nx.DiGraph()
-  G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
-  if 'weight' in list(df_net.columns):
-    edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
-    G.add_weighted_edges_from(edge_list)                                      # add all edges
-  else:
-    edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target']].values)]    # get the edge list (with weights)
-    G.add_edges_from(edge_list)                                      # add all edges
-  print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
-  print(bcolors.OKGREEN + f'\tThere are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
-  print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
-  print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_directed(G) else "is not"} directed' + bcolors.ENDC)
-
   """# Network embedding with Karateclub""" 
 
   from karateclub.node_embedding import *
@@ -225,6 +206,25 @@ if "EMBED" in args.attributes:
     print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
     embedding_df = pd.read_csv(embedfilename, index_col=0)
   else:
+    import networkx as nx
+    netfile = os.path.join(datapath,args.netfile)
+    df_net = pd.read_csv(netfile, index_col=0)
+    print(f'Loading "{network}" network file "{netfile}" ...')
+    if network == "PPI":
+      G = nx.Graph()
+    else:
+      G = nx.DiGraph()
+    G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
+    if 'weight' in list(df_net.columns):
+      edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
+      G.add_weighted_edges_from(edge_list)                                      # add all edges
+    else:
+      edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target']].values)]    # get the edge list (with weights)
+      G.add_edges_from(edge_list)                                      # add all edges
+    print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'\tThere are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_directed(G) else "is not"} directed' + bcolors.ENDC)
     embedder = globals()[embeddername](dimensions=args.embedsize)
     embedder.fit(G)
     embedding = embedder.get_embedding()
@@ -271,7 +271,6 @@ if args.tocsv:
   newd['class'] = y
   newd.to_csv(os.path.join(datapath,'eg.csv'), index=False)
 
-clf = globals()[classifier_map[args.method]](**classifiers_args[args.method])
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
@@ -282,6 +281,7 @@ print(f'Classification with method "{method}"...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
+    clf = globals()[classifier_map[args.method]](**classifiers_args[args.method]) if args.tuneparams else globals()[classifier_map[args.method]]()
     preds = clf.fit(train_x, train_y).predict(test_x)
     cm = confusion_matrix(test_y, preds)
     cma += cm.astype(int)
