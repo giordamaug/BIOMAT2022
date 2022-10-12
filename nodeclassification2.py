@@ -25,7 +25,7 @@ from operator import index
 import numpy as np
 
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
-parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "GTEX", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
+parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
 parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[np.nan], help='labels to exclude (default NaN, values any list)', required=False)
 parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default None, values any list)', required=False)
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
@@ -141,17 +141,17 @@ At the end, only nodes (genes) with E or NE labels are selected for the classifi
 import re
 r = re.compile('^GTEX*')
 
-if "BIO" in args.attributes or "GTEX" in args.attributes:
+if "BIO" in args.attributes:
   normalize_node = args.normalize #@param ["", "zscore", "minmax"]
   attr_file = os.path.join(datapath,args.attrfile)
   print(f'Loading attribute matrix "{attr_file}"...')
   x = pd.read_csv(attr_file)
   x = x.drop(columns=['id']) if 'id' in list(x.columns) else x
-  gtex_attributes = list(filter(r.match, x.columns)) 
-  bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in args.attributes else []
-  gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
+  #gtex_attributes = list(filter(r.match, x.columns)) 
+  #bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in args.attributes else []
+  #gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
   print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
-  x = x.filter(items=bio_attributes+gtex_attributes)
+  #x = x.filter(items=bio_attributes+gtex_attributes)
   if args.onlyattributes is not None:
   	x = x.filter(items=args.onlyattributes)
   print(bcolors.OKGREEN + f'\tfound {x.isnull().sum().sum()} NaN values and {np.isinf(x).values.sum()} Infinite values' + bcolors.ENDC)
@@ -172,6 +172,7 @@ if "BIO" in args.attributes or "GTEX" in args.attributes:
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+  x.to_csv("attrib.csv")
 else:
   x = pd.DataFrame()
 
