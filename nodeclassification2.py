@@ -27,7 +27,8 @@ import numpy as np
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
 parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[np.nan], help='labels to exclude (default NaN, values any list)', required=False)
-parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default None, values any list)', required=False)
+parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default All, values any list)', required=False)
+parser.add_argument('-o', "--excludeattributes", dest='excludeattributes', metavar='<excludeattributes>', nargs="+", default=None, help='attributes to exlude (default None, values any list)', required=False)
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>', type=str, help='label name (default label_CS_ACH_most_freq)', default='label_CS_ACH_most_freq', required=False)
@@ -154,6 +155,8 @@ if "BIO" in args.attributes:
   #x = x.filter(items=bio_attributes+gtex_attributes)
   if args.onlyattributes is not None:
   	x = x.filter(items=args.onlyattributes)
+  if args.excludeattributes is not None:
+    x = x.drop(columns=args.excludeattributes)
   print(bcolors.OKGREEN + f'\tfound {x.isnull().sum().sum()} NaN values and {np.isinf(x).values.sum()} Infinite values' + bcolors.ENDC)
   for col in x.columns[x.isna().any()].tolist():
     mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
@@ -172,9 +175,19 @@ if "BIO" in args.attributes:
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
-  x.to_csv("attrib.csv")
+  x.to_csv(os.path.join(datapath,"attrib.csv"))
 else:
   x = pd.DataFrame()
+
+with open(os.path.join(datapath,'genes.txt'), 'w') as filehandle:
+  for listitem in selectedgenes:
+      filehandle.write(f'{listitem}\n') 
+# for loading
+selectedgenes = []
+with open(os.path.join(datapath,'genes.txt'), 'r') as filehandle:
+    for line in filehandle:
+        selectedgenes.append(line[:-1])
+
 
 # print label distribution
 labels = df_label.set_index('name').loc[selectedgenes][labelname].values
