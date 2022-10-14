@@ -286,6 +286,7 @@ set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
+genes = x.index.values
 X = x.to_numpy()
 if args.tocsv:
   newd = x.copy()
@@ -295,6 +296,8 @@ if args.tocsv:
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
+gg = np.array([])
+yy = np.array([], dtype=np.int)
 predictions = np.array([])
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
@@ -302,6 +305,8 @@ print(f'Classification with method "{method}"...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
+    yy = np.concatenate((yy, test_y))
+    gg = np.concatenate((gg, genes[test_idx]))
     clf = globals()[classifier_map[args.method]](**classifiers_args[args.method]) if args.tuneparams else globals()[classifier_map[args.method]]()
     preds = clf.fit(train_x, train_y).predict(test_x)
     cm = confusion_matrix(test_y, preds)
@@ -320,7 +325,7 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
-df_results = pd.DataFrame({ 'gene': selectedgenes, 'CS Group' : df_label[labelname].values, 'label': df_label[new_label_name].values, 'prediction': [rev_classes_mapping[int(p)] for p in predictions]})
+df_results = pd.DataFrame({ 'gene': gg, 'CS Group' : df_label.set_index('name').loc[list(gg)][labelname].values, 'label': yy, 'prediction': [int(p) for p in predictions]})
 df_results = df_results.set_index(['gene'])
 df_results.to_csv(os.path.join(datapath,'results.csv'))
 print(df_results)
