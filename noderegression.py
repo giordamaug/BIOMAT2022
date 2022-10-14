@@ -30,6 +30,7 @@ parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<o
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-T', "--targetfile", dest='targetfile', metavar='<targetfile>', type=str, help='target filename (default node_targets.csv)', default='node_targets.csv', required=False)
+parser.add_argument('-Y', "--targetpos", dest='targetpos', metavar='<targetpos>', type=int, nargs="+", default=[0], help='targets positions (default [0], values any list)', required=False)
 parser.add_argument('-x', "--excludetargets", dest='excludetargets', metavar='<excludetargets>', nargs="+", default=[], help='targets to exlude (default None, values any list)', required=False)
 parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', type=str, help='attribute filename (default node_attributes.csv)', default='node_attributes.csv', required=False)
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi.csv)', default='ppi.csv', required=False)
@@ -39,7 +40,7 @@ parser.add_argument('-n', "--network", dest='network', metavar='<network>', type
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|XGB|LGBM)', choices=['RF', 'XGB', 'LGBM', 'SVM'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
@@ -51,7 +52,7 @@ args = parser.parse_args()
 seed=1
 
 classifier_map = {'RF' : 'RandomForestRegressor', 
-                  'SVM' : 'SVC', 
+                  'SVM' : 'SVR(kernel="rbf", C=100, gamma=0.1, epsilon=0.1)', 
                   'XGB': 'XGBRegressor',
                   'LGBM': 'LGBMRegressor'}
 
@@ -108,6 +109,7 @@ idx2gene_mapping = { v[0] : v[1]  for v in df_target[['index', 'name']].values }
 df_target = df_target.dropna(how='all')
 exclude_target = args.excludetargets
 df_target = df_target.drop(columns=exclude_target+['index']).set_index('name')                      # drop specified input colum target
+df_target = df_target.iloc[:,args.targetpos]
 selectedgenes = df_target.index.values
 print(bcolors.OKGREEN + f'\t{len(selectedgenes)} genes with scores over a total of {len(genes)}' + bcolors.ENDC)
 
@@ -243,6 +245,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.multioutput import MultiOutputRegressor
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
+from sklearn.svm import SVR
 from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
 from sklearn.metrics import *
@@ -254,10 +257,10 @@ accuracies, mccs = [], []
 X = x.to_numpy()
 y = df_target.to_numpy()
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.8)
+print(X.shape, y.shape)
+#predictions = np.empty(shape=[0, y.shape[1]])
+predictions = np.array([])
 
-
-predictions = np.empty(shape=[0, y.shape[1]])
 columns_names = ["MSE", "MAE", "R2"]
 scores = pd.DataFrame(columns=columns_names)
 print(f'Regression with method "{method}"...')
@@ -268,10 +271,13 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
       preds =RandomForestRegressor().fit(train_x, train_y).predict(test_x)
     elif args.method == 'XGB':
       preds = MultiOutputRegressor(XGBRegressor(objective='reg:squarederror')).fit(train_x, train_y).predict(test_x)
+    elif args.method == 'SVM':
+      preds = SVR(kernel="rbf").fit(train_x, train_y).predict(test_x)
     else:
       raise Exception("Wrong regressor method")
     predictions = np.concatenate((predictions, preds))
-    scores = scores.append(pd.DataFrame([[mean_squared_error(test_y, preds), mean_absolute_error(test_y, preds),r2_score(test_y, preds, multioutput='variance_weighted')]], 
+    scores = scores.append(pd.DataFrame([[mean_squared_error(test_y, preds), mean_absolute_error(test_y, preds),
+         r2_score(test_y, preds, multioutput='variance_weighted')]], 
                                 columns=columns_names, index=[fold]))
 dfm_scores = pd.DataFrame(scores.mean(axis=0)).T
 dfs_scores = pd.DataFrame(scores.std(axis=0)).T
