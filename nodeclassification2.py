@@ -41,6 +41,7 @@ parser.add_argument('-n', "--network", dest='network', metavar='<network>', type
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
+parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, help='seed (default: 1)' , default='1', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
@@ -50,7 +51,7 @@ parser.add_argument('-X', "--display", action='store_true', required=False)
 parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
-seed=1
+seed=args.seed
 
 classifier_map = {'RF' : 'RandomForestClassifier', 
                   'MLP': 'MLPClassifier', 
@@ -116,9 +117,8 @@ new_label_name = 'CS0_vs_CS6-9'
 df_label[new_label_name] = df_label.apply(lambda row: 'E' if row[labelname] in args.E_class \
                                         else 'NE' if row[labelname] in args.NE_class \
                                         else 'ND', axis=1)
-labelname = new_label_name
 exclude_labels = args.excludelabels
-df_label = df_label[df_label[labelname].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
+df_label = df_label[df_label[new_label_name].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
 selectedgenes = df_label['name'].values
 print(bcolors.OKGREEN + f'\t{len(selectedgenes)} labeled genes over a total of {len(genes)}' + bcolors.ENDC)
 #plt.show()
@@ -141,6 +141,10 @@ At the end, only nodes (genes) with E or NE labels are selected for the classifi
 #@title Choose attributes { form-width: "20%" }
 import re
 r = re.compile('^GTEX*')
+
+def intersection(lst1, lst2):
+    lst3 = [value for value in lst1 if value in lst2]
+    return lst3
 
 if "BIO" in args.attributes:
   normalize_node = args.normalize #@param ["", "zscore", "minmax"]
@@ -170,7 +174,8 @@ if "BIO" in args.attributes:
   elif normalize_node == 'zscore':
     print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
     x = (x-x.mean())/x.std()
-  selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
+  #selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
+  selectedgenes = intersection(x.index.to_list(), selectedgenes)
   print(bcolors.OKGREEN + f'\tgenes with attributes are {len(selectedgenes)}' + bcolors.ENDC)
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
@@ -190,14 +195,16 @@ with open(os.path.join(datapath,'genes.txt'), 'r') as filehandle:
 
 
 # print label distribution
-labels = df_label.set_index('name').loc[selectedgenes][labelname].values
+labels = df_label.set_index('name').loc[selectedgenes][new_label_name].values
 distrib = Counter(labels)
 encoder = preprocessing.LabelEncoder()
 y = encoder.fit_transform(labels)  
 classes_mapping = dict(zip(encoder.classes_, encoder.transform(encoder.classes_)))
+rev_classes_mapping = np.array(list(classes_mapping.keys()))
+
 plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
 print(f'Label distribution ...')
-print(bcolors.OKGREEN + f'\tWorking on label "{labelname}": {classes_mapping} {dict(distrib)}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'\tWorking on label "{new_label_name}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
 
 """# Load the PPI+MET network
 The PPI networks is loaded from a CSV file, where
@@ -313,3 +320,7 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
+df_results = pd.DataFrame({ 'gene': selectedgenes, 'CS Group' : df_label[labelname].values, 'label': df_label[new_label_name].values, 'prediction': [rev_classes_mapping[int(p)] for p in predictions]})
+df_results = df_results.set_index(['gene'])
+df_results.to_csv(os.path.join(datapath,'results.csv'))
+print(df_results)
