@@ -30,7 +30,7 @@ parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<o
 parser.add_argument('-c', "--embeddir", dest='embeddir', metavar='<embedding-dir>', type=str, help='embedding directory (default embeddings)', default='embeddings', required=False)
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default datasets)', default='datasets', required=False)
 parser.add_argument('-T', "--targetfile", dest='targetfile', metavar='<targetfile>', type=str, help='target filename (default node_targets.csv)', default='node_targets.csv', required=False)
-parser.add_argument('-Y', "--targetpos", dest='targetpos', metavar='<targetpos>', type=int, nargs="+", default=[0], help='targets positions (default [0], values any list)', required=False)
+parser.add_argument('-Y', "--targetpos", dest='targetpos', metavar='<targetpos>', type=int, nargs="+", default=[], help='targets positions (default [], values any list)', required=False)
 parser.add_argument('-x', "--excludetargets", dest='excludetargets', metavar='<excludetargets>', nargs="+", default=[], help='targets to exlude (default None, values any list)', required=False)
 parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', type=str, help='attribute filename (default node_attributes.csv)', default='node_attributes.csv', required=False)
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi.csv)', default='ppi.csv', required=False)
@@ -109,7 +109,7 @@ idx2gene_mapping = { v[0] : v[1]  for v in df_target[['index', 'name']].values }
 df_target = df_target.dropna(how='all')
 exclude_target = args.excludetargets
 df_target = df_target.drop(columns=exclude_target+['index']).set_index('name')                      # drop specified input colum target
-df_target = df_target.iloc[:,args.targetpos]
+df_target = df_target.iloc[:,args.targetpos] if args.targetpos != [] else df_target
 selectedgenes = df_target.index.values
 print(bcolors.OKGREEN + f'\t{len(selectedgenes)} genes with scores over a total of {len(genes)}' + bcolors.ENDC)
 
@@ -242,7 +242,7 @@ if "EMBED" in args.attributes:
 method = args.method #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.multioutput import MultiOutputRegressor
+from sklearn.multioutput import MultiOutputRegressor, RegressorChain
 from xgboost import XGBRegressor
 from lightgbm import LGBMRegressor
 from sklearn.svm import SVR
@@ -258,19 +258,21 @@ X = x.to_numpy()
 y = df_target.to_numpy()
 
 print(X.shape, y.shape)
-#predictions = np.empty(shape=[0, y.shape[1]])
-predictions = np.array([])
+predictions = np.empty(shape=[0, y.shape[1]])
+#predictions = np.array([])
 
 columns_names = ["MSE", "MAE", "R2"]
 scores = pd.DataFrame(columns=columns_names)
 print(f'Regression with method "{method}"...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
-    #clf = globals()[classifier_map[args.method]](**classifiers_args[args.method]) if args.tuneparams else globals()[classifier_map[args.method]]()
     if args.method == 'RF':
       preds =RandomForestRegressor().fit(train_x, train_y).predict(test_x)
     elif args.method == 'XGB':
       preds = MultiOutputRegressor(XGBRegressor(objective='reg:squarederror')).fit(train_x, train_y).predict(test_x)
+      #preds = RegressorChain(base_estimator=XGBRegressor(objective='reg:squarederror')).fit(train_x, train_y).predict(test_x)
+    elif args.method == 'LGBM':
+      preds = MultiOutputRegressor(LGBMRegressor()).fit(train_x, train_y).predict(test_x)
     elif args.method == 'SVM':
       preds = SVR(kernel="rbf").fit(train_x, train_y).predict(test_x)
     else:
