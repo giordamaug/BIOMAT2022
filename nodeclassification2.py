@@ -180,6 +180,7 @@ if "BIO" in args.attributes:
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'\tUsing attributes {list(x.columns)}' + bcolors.ENDC)
   x.to_csv(os.path.join(datapath,"attrib.csv"))
 else:
   x = pd.DataFrame()
@@ -328,4 +329,4 @@ print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + 
 df_results = pd.DataFrame({ 'gene': gg, 'CS Group' : df_label.set_index('name').loc[list(gg)][labelname].values, 'label': yy, 'prediction': [int(p) for p in predictions]})
 df_results = df_results.set_index(['gene'])
 df_results.to_csv(os.path.join(datapath,'results.csv'))
-print(df_results)
+print(bcolors.OKGREEN,df_results,bcolors.ENDC)
