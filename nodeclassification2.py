@@ -66,7 +66,7 @@ classifiers_args = {
   'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
   'RUS': {'random_state' : seed},
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
-  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
+  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'}
 }
 
 import warnings
