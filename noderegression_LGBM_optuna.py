@@ -252,15 +252,25 @@ regressor_args = {'random_state' : seed}
 #    'min_child_samples': 44,
 #    'sub_feature': 0.35181769039281496,
 #    'sub_row': 0.3962673628733871}
+aliases = [
+  {'reg_lambda', 'lambda_l2'},
+  {'reg_alpha', 'lambda_l1'},
+  {'min_child_samples', 'min_data_in_leaf'}, 
+  {'colsample_bytree', 'feature_fraction'},
+  {'subsample_freq', 'bagging_freq'},
+  { 'subsample', 'bagging_fraction' },
+]
 if args.tuneparams:
   print(f'\Optimizing method ...')
   def objective_xgb(trial):
     """
     Objective function to tune an `LGBMRegressor` model.
     """
-    train_x, valid_x, train_y, valid_y = train_test_split(X, y, test_size=0.25, random_state=42)
+    train_x, valid_x, train_y, valid_y = train_test_split(X, y, test_size=0.20, random_state=seed)
 
     params = {
+        'boosting_type' : 'gbdt',
+        'objective' : "regression",
         'verbosity': -1,
         'force_row_wise': True,
         'max_depth': -1,
@@ -282,18 +292,23 @@ if args.tuneparams:
         'sub_row': trial.suggest_uniform('sub_row', 0.0, 1.0)
     }
 
-    model = MultiOutputRegressor(lgb.LGBMRegressor(
-        boosting_type='gbdt',
-        objective="regression",
-        random_state=1,
-        **params
-    ))
+    model = lgb.LGBMRegressor()
+    defparams = model.get_params()
+    for alias in aliases:
+        if len(alias & set(defparams)) == 2:
+            arg = random.choice(sorted(alias))
+            defparams[arg] = None
+    model = MultiOutputRegressor(lgb.LGBMRegressor(**params))
+
+    #model = MultiOutputRegressor(lgb.LGBMRegressor(
+    #    **params
+    #))
 
     yhat = model.fit(train_x,train_y).predict(valid_x)
     return r2_score(valid_y, yhat, multioutput='variance_weighted')
 
   study = optuna.create_study(direction="maximize")
-  study.optimize(objective_xgb, n_trials=50)
+  study.optimize(objective_xgb, n_trials=100)
   study.best_params
 
   print("Number of finished trials: {}".format(len(study.trials)))
