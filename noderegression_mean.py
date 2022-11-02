@@ -34,8 +34,9 @@ parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', t
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi.csv)', default='ppi.csv', required=False)
 parser.add_argument('-E', "--essentials", dest='E_class', metavar='<essential-groups>', nargs="+", default=["CS0"], help='CS groups of essential genes (default: CS0, range: [CS0,...,CS9]', required=False)
 parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-essential-groups>', nargs="+", default=["CS6", "CS7","CS8","CS9"], help='CS groups of non essential genes (default:  CS6 CS7 CS8 CS9], range: [CS0,...,CS9]', required=False)
+parser.add_argument('-x', "--excludetargets", dest='excludetargets', metavar='<excludetargets>', nargs="+", default=[], help='targets to exlude (default None, values any list)', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
-parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
+parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default='None', required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|XGB|LGBM)', choices=['RF', 'XGB', 'LGBM', 'SVM'], default='RF', required=False)
@@ -43,23 +44,23 @@ parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
 parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
+parser.add_argument('-W', "--load-params", dest='loadparams',  action='store_true', required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
 parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
-seed=1
+seed=1 
 
 classifier_map = {'RF' : 'RandomForestRegressor', 
                   'SVM' : 'SVR(kernel="rbf", C=100, gamma=0.1, epsilon=0.1)', 
                   'XGB': 'XGBRegressor',
                   'LGBM': 'LGBMRegressor'}
 
-classifiers_args = {
+regressor_args = {
   'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
   'LGBM': {'random_state' : seed},
 }
-
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -105,7 +106,8 @@ df_target['index'] = df_target.index
 gene2idx_mapping = { v[1] : v[0]  for v in df_target[['index', 'name']].values }             # create mapping index by gene name
 idx2gene_mapping = { v[0] : v[1]  for v in df_target[['index', 'name']].values }             # create mapping index by gene name
 df_target = df_target.dropna(how='all')
-df_target = df_target.drop(columns=['index']).set_index('name')                      # drop specified input colum target
+exclude_target = args.excludetargets
+df_target = df_target.drop(columns=exclude_target+['index']).set_index('name')                      # drop specified input colum target
 selectedgenes = df_target.index.values
 print(bcolors.OKGREEN + f'\t{len(selectedgenes)} genes with scores over a total of {len(genes)}' + bcolors.ENDC)
 
@@ -125,9 +127,6 @@ At the end, only nodes (genes) with E or NE labels are selected for the classifi
 """
 
 #@title Choose attributes { form-width: "20%" }
-import re
-r = re.compile('^GTEX*')
-
 if "BIO" in args.attributes:
   normalize_node = args.normalize #@param ["", "zscore", "minmax"]
   attr_file = os.path.join(datapath,args.attrfile)
@@ -239,7 +238,7 @@ method = args.method #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
-from lightgbm import LGBMRegressor
+import lightgbm as  lgb
 from sklearn.svm import SVR
 from sklearn.model_selection import KFold, train_test_split
 from tqdm import tqdm
@@ -252,18 +251,77 @@ accuracies, mccs = [], []
 X = x.to_numpy()
 y = df_target.to_numpy()
 
+
+import optuna
+import pickle
+if args.tuneparams and not args.loadparams:
+  print(f'Optimizing method ...')
+  def objective(trial, index):
+    """
+    Objective function to tune an `LGBMRegressor` model.
+    """
+    train_x, valid_x, train_y, valid_y = train_test_split(X, y[:,index], test_size=0.20, random_state=42)
+
+    params = {
+        'objective':"regression",
+        'metric': 'r2', 
+        'random_state': 1,
+        'reg_alpha': trial.suggest_loguniform('lambda_l1', 1e-8, 10.0),
+        'reg_lambda': trial.suggest_loguniform('lambda_l1', 1e-8, 10.0),
+        'colsample_bytree': trial.suggest_uniform('feature_fraction', 0.4, 1.0),
+        'subsample': trial.suggest_uniform('feature_fraction', 0.4, 1.0),
+        #'learning_rate': trial.suggest_categorical('learning_rate', [0.006,0.008,0.01,0.014,0.017,0.02]),
+        'max_depth': trial.suggest_categorical('max_depth', [10,20,100]),
+        #'max_bin': trial.suggest_int('max_bin', 1, 512),
+        'num_leaves': trial.suggest_int('num_leaves', 2, 512),
+        'min_child_samples': trial.suggest_int('min_child_samples', 1, 50),
+        'cat_smooth' : trial.suggest_int('min_data_per_groups', 1, 100)
+    }
+
+    #params = model.get_params()
+    #model = LGBMRegressor(**params)
+    #params = model.get_params()
+    #or alias in aliases:
+    #    if len(alias & set(params)) == 2:
+    #        arg = random.choice(sorted(alias))
+    #       params[arg] = None
+    model = lgb.LGBMRegressor(**params)
+
+    yhat = model.fit(train_x,train_y).predict(valid_x)
+    return r2_score(valid_y, yhat)
+
+  regparams = []
+  for i in range(len(y[0])):
+    #optuna.logging.set_verbosity(0) 
+    study = optuna.create_study(direction="maximize")
+    func = lambda trial: objective(trial, i)
+    study.optimize(func, n_trials=50)
+    regparams += [study.best_params]
+  with open(os.path.join(datapath,f'optunaparamss.pkl'), 'wb') as f:
+       pickle.dump(regparams, f)
+else:
+  regparams = [regressor_args[args.method]]*len(y[0])
+
+if args.loadparams:
+  print(f'Loading method params from file "optunaparamss.pkl" ...')
+  file = open(os.path.join(datapath,f'optunaparamss.pkl'), 'rb')
+  regparams = pickle.load(file)
+
 columns_names = ["MSE", "MAE", "R2"]
 scores = pd.DataFrame(columns=columns_names)
-print(f'Regression with method "{method}"...')
+print(f'Regression with method "{method}" ...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
   train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
-  predictions = np.array([])
-  for i in range(len(df_target.columns)):
-      preds = LGBMRegressor().fit(train_x, train_y[:,i]).predict(test_x)
-      predictions = np.concatenate((predictions, preds))
-      print(preds.shape, test_y.mean(1).shape)
-  scores = scores.append(pd.DataFrame([[mean_squared_error(test_y.mean(), predictions.mean()), mean_absolute_error(test_y.mean(), predictions.mean()),
-           r2_score(test_y.mean(), predictions.mean())]], 
+  predictions = np.empty((len(test_x),0))
+  for i in range(len(y[0])):
+  #for i in range(len(df_target.columns)):
+      preds = lgb.LGBMRegressor(**regparams[i]).fit(train_x, train_y[:,i]).predict(test_x)
+      predictions = np.concatenate((predictions, preds.reshape(-1,1)), axis=1)
+  #scores = scores.append(pd.DataFrame([[mean_squared_error(test_y.mean(axis=1), predictions.mean(axis=1)), mean_absolute_error(test_y.mean(axis=1), predictions.mean(axis=1)),
+  #         r2_score(test_y.mean(axis=1), predictions.mean(axis=1))]], 
+  #                                columns=columns_names, index=[fold]))
+  scores = scores.append(pd.DataFrame([[mean_squared_error(np.median(test_y, axis=1), np.median(predictions,axis=1)), mean_absolute_error(np.median(test_y,axis=1), np.median(predictions,axis=1)),
+           r2_score(np.median(test_y,axis=1), np.median(predictions,axis=1))]], 
                                   columns=columns_names, index=[fold]))
 dfm_scores = pd.DataFrame(scores.mean(axis=0)).T
 dfs_scores = pd.DataFrame(scores.std(axis=0)).T
