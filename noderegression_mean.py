@@ -229,6 +229,13 @@ if "EMBED" in args.attributes:
 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
+if args.tocsv:
+  print(bcolors.OKGREEN + f'\tSaving matrix to x.csv' + bcolors.ENDC)
+  x.to_csv(os.path.join(datapath, "x.csv"))
+  print(bcolors.OKGREEN + f'\tSaving target to y.csv' + bcolors.ENDC)
+  print(df_target)
+  df_target.set_index('name').to_csv(os.path.join(datapath, "y.csv"))
+
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
 """
