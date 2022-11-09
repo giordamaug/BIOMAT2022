@@ -39,7 +39,6 @@ parser.add_argument('-n', "--network", dest='network', metavar='<network>', type
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default='None', required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|XGB|LGBM)', choices=['RF', 'XGB', 'LGBM', 'SVM'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
@@ -61,6 +60,11 @@ regressor_args = {
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
   'LGBM': {'random_state' : seed},
 }
+
+def intersection(lst1, lst2):
+    lst3 = [value for value in lst1 if value in lst2]
+    return lst3
+
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -153,7 +157,8 @@ if "BIO" in args.attributes:
   elif normalize_node == 'zscore':
     print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
     x = (x-x.mean())/x.std()
-  selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
+  #selectedgenes = list(set(x.index.to_numpy()).intersection(set(selectedgenes)))
+  selectedgenes = intersection(x.index.to_list(), selectedgenes)
   print(bcolors.OKGREEN + f'\tgenes with attributes are {len(selectedgenes)}' + bcolors.ENDC)
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
@@ -229,19 +234,13 @@ if "EMBED" in args.attributes:
 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
-if args.tocsv:
-  print(bcolors.OKGREEN + f'\tSaving matrix to x.csv' + bcolors.ENDC)
-  x.to_csv(os.path.join(datapath, "x.csv"))
-  print(bcolors.OKGREEN + f'\tSaving target to y.csv' + bcolors.ENDC)
-  print(df_target)
-  df_target.set_index('name').to_csv(os.path.join(datapath, "y.csv"))
 
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
 """
 
 #@title Choose classifier { run: "auto", form-width: "20%" }
-method = args.method #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
+method = "LGBM" #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
@@ -255,6 +254,11 @@ set_seed(seed)
 nfolds = 5
 kf = KFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
+if args.tocsv:
+  print(bcolors.OKGREEN + f'\tSaving matrix to x.csv' + bcolors.ENDC)
+  x.to_csv(os.path.join(datapath, "x.csv"))
+  print(bcolors.OKGREEN + f'\tSaving target to y.csv' + bcolors.ENDC)
+  df_target.to_csv(os.path.join(datapath, "y.csv"))
 X = x.to_numpy()
 y = df_target.to_numpy()
 
@@ -307,7 +311,7 @@ if args.tuneparams and not args.loadparams:
   with open(os.path.join(datapath,f'optunaparamss.pkl'), 'wb') as f:
        pickle.dump(regparams, f)
 else:
-  regparams = [regressor_args[args.method]]*len(y[0])
+  regparams = [regressor_args[method]]*len(y[0])
 
 if args.loadparams:
   print(f'Loading method params from file "optunaparamss.pkl" ...')
@@ -324,9 +328,6 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
   #for i in range(len(df_target.columns)):
       preds = lgb.LGBMRegressor(**regparams[i]).fit(train_x, train_y[:,i]).predict(test_x)
       predictions = np.concatenate((predictions, preds.reshape(-1,1)), axis=1)
-  #scores = scores.append(pd.DataFrame([[mean_squared_error(test_y.mean(axis=1), predictions.mean(axis=1)), mean_absolute_error(test_y.mean(axis=1), predictions.mean(axis=1)),
-  #         r2_score(test_y.mean(axis=1), predictions.mean(axis=1))]], 
-  #                                columns=columns_names, index=[fold]))
   scores = scores.append(pd.DataFrame([[mean_squared_error(np.median(test_y, axis=1), np.median(predictions,axis=1)), mean_absolute_error(np.median(test_y,axis=1), np.median(predictions,axis=1)),
            r2_score(np.median(test_y,axis=1), np.median(predictions,axis=1))]], 
                                   columns=columns_names, index=[fold]))
