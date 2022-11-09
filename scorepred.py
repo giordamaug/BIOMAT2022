@@ -5,10 +5,13 @@ import random
 import argparse
 parser = argparse.ArgumentParser(description='score and predictions')
 parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', type=str, help='data directory (default KIDNEY)', default='KIDNEY', required=False)
+parser.add_argument('-f', "--scorefile", dest='scorefile', metavar='<score-file>', type=str, help='score filename (default scorepred.csv)', default='scorepred.csv', required=False)
+parser.add_argument('-x', "--xfile", dest='xfile', metavar='<x-file>', type=str, help='x filename (default x.csv)', default='x.csv', required=False)
+parser.add_argument('-y', "--yfile", dest='yfile', metavar='<y-file>', type=str, help='y filename (default y.csv)', default='y.csv', required=False)
 args = parser.parse_args()
 
-x = pd.read_csv(f'{args.datadir}/x.csv', index_col=0)
-targets = pd.read_csv(f'{args.datadir}/y.csv', index_col=0)
+x = pd.read_csv(f'{args.datadir}/{args.xfile}', index_col=0)
+targets = pd.read_csv(f'{args.datadir}/{args.yfile}', index_col=0)
 
 import lightgbm as  lgb
 from sklearn.svm import SVR
@@ -36,4 +39,4 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
   result = result.append(pd.DataFrame(data))
 
 print(result)
-result.set_index('name').to_csv(f'{args.datadir}/scorepred.csv')
+result.set_index('name').to_csv(f'{args.datadir}/{args.scorefile}')
