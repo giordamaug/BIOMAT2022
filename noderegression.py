@@ -24,6 +24,8 @@ import argparse
 from operator import index
 import numpy as np
 
+import optuna.inte
+
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,GTEX,EMBED)', required=False)
 parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default None, values any list)', required=False)
@@ -40,7 +42,7 @@ parser.add_argument('-n', "--network", dest='network', metavar='<network>', type
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|XGB|LGBM)', choices=['RF', 'XGB', 'LGBM', 'SVM'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|XGB|LGBM)', choices=['RF', 'XGB', 'LGBM', 'SVR'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
 parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
@@ -57,10 +59,13 @@ classifier_map = {'RF' : 'RandomForestRegressor',
                   'LGBM': 'LGBMRegressor'}
 
 classifiers_args = {
+  'SVM' : {'kernel': 'rbf'},
   'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
-  'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
+  'XGB': {'random_state' : seed, 'objective' : 'reg:squarederror'},
   'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
 }
+
+regressor_args = classifiers_args[args.method] if args.tuneparams else {}
 
 
 import warnings
@@ -263,18 +268,18 @@ predictions = np.empty(shape=[0, y.shape[1]])
 
 columns_names = ["MSE", "MAE", "R2"]
 scores = pd.DataFrame(columns=columns_names)
-print(f'Regression with method "{method}"...')
+print(f'Regression with method "{method}" and params {regressor_args}...')
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     if args.method == 'RF':
       preds =RandomForestRegressor().fit(train_x, train_y).predict(test_x)
     elif args.method == 'XGB':
-      preds = MultiOutputRegressor(XGBRegressor(objective='reg:squarederror')).fit(train_x, train_y).predict(test_x)
+      preds = MultiOutputRegressor(XGBRegressor(**regressor_args)).fit(train_x, train_y).predict(test_x)
       #preds = RegressorChain(base_estimator=XGBRegressor(objective='reg:squarederror')).fit(train_x, train_y).predict(test_x)
     elif args.method == 'LGBM':
-      preds = MultiOutputRegressor(LGBMRegressor()).fit(train_x, train_y).predict(test_x)
+      preds = MultiOutputRegressor(LGBMRegressor(**regressor_args)).fit(train_x, train_y).predict(test_x) 
     elif args.method == 'SVM':
-      preds = SVR(kernel="rbf").fit(train_x, train_y).predict(test_x)
+      preds = SVR(**regressor_args).fit(train_x, train_y).predict(test_x)
     else:
       raise Exception("Wrong regressor method")
     predictions = np.concatenate((predictions, preds))

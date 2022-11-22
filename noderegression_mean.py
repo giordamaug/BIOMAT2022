@@ -328,9 +328,10 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
   #for i in range(len(df_target.columns)):
       preds = lgb.LGBMRegressor(**regparams[i]).fit(train_x, train_y[:,i]).predict(test_x)
       predictions = np.concatenate((predictions, preds.reshape(-1,1)), axis=1)
-  scores = scores.append(pd.DataFrame([[mean_squared_error(np.median(test_y, axis=1), np.median(predictions,axis=1)), mean_absolute_error(np.median(test_y,axis=1), np.median(predictions,axis=1)),
-           r2_score(np.median(test_y,axis=1), np.median(predictions,axis=1))]], 
-                                  columns=columns_names, index=[fold]))
+  #scores = scores.append(pd.DataFrame([[mean_squared_error(np.median(test_y, axis=1), np.median(predictions,axis=1)), mean_absolute_error(np.median(test_y,axis=1), np.median(predictions,axis=1)),
+           #r2_score(np.median(test_y,axis=1), np.median(predictions,axis=1))]], columns=columns_names, index=[fold]))
+  scores = scores.append(pd.DataFrame([[mean_squared_error(np.mean(test_y, axis=1), np.mean(predictions,axis=1)), mean_absolute_error(np.mean(test_y,axis=1), np.mean(predictions,axis=1)),
+           r2_score(np.mean(test_y,axis=1), np.mean(predictions,axis=1))]], columns=columns_names, index=[fold]))
 dfm_scores = pd.DataFrame(scores.mean(axis=0)).T
 dfs_scores = pd.DataFrame(scores.std(axis=0)).T
 df_scores = pd.DataFrame([f'{row[0]:.3f}±{row[1]:.3f}' for row in pd.concat([dfm_scores,dfs_scores], axis=0).T.values.tolist()]).T
