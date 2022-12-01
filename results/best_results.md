@@ -4,7 +4,7 @@
 
 Combining `BIO`logical attributes and `EMB`edding features learned by Node2Vec (with 64-size)
 
-```python
+```shell
 $ python nodeclassification2.py -d <dataset> 
      -a BIO EMBED  
      -A node_attributes.csv -Z zscore
@@ -16,7 +16,7 @@ $ python nodeclassification2.py -d <dataset>
 
 Using only  `BIO`logical attributes.
 
-```python
+```shell
 $ python nodeclassification2.py -d <dataset> 
      -a BIO  
      -A node_attributes.csv -Z zscore
@@ -27,7 +27,7 @@ $ python nodeclassification2.py -d <dataset>
 
 Using only `EMB`edding features learned by Node2Vec (with 64-size)
 
-```python
+```shell
 $ python nodeclassification2.py -d <dataset> -Z        
      -a EMBED 
      -e Node2Vec -L -c <dataset>/embeddings -s 64 
