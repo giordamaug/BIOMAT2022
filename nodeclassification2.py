@@ -25,7 +25,7 @@ from operator import index
 import numpy as np
 
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
-parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], help='attributes to consider (default BIO GTEX EMBED, values BIO,GTEX,EMBED)', required=False)
+parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,EMBED)', required=False)
 parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[np.nan], help='labels to exclude (default NaN, values any list)', required=False)
 parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default All, values any list)', required=False)
 parser.add_argument('-o', "--excludeattributes", dest='excludeattributes', metavar='<excludeattributes>', nargs="+", default=None, help='attributes to exlude (default None, values any list)', required=False)
@@ -113,12 +113,15 @@ df_label = df_label.reset_index()                                               
 df_label['index'] = df_label.index
 gene2idx_mapping = { v[1] : v[0]  for v in df_label[['index', 'name']].values }             # create mapping index by gene name
 idx2gene_mapping = { v[0] : v[1]  for v in df_label[['index', 'name']].values }             # create mapping index by gene name
-new_label_name = 'CS0_vs_CS6-9'
-df_label[new_label_name] = df_label.apply(lambda row: 'E' if row[labelname] in args.E_class \
+old =  True
+if labelname == "label_CS_ACH_most_freq" or labelname == "label_wo_outliers":
+  new_label_name = 'CS0_vs_CS6-9'
+  df_label[new_label_name] = df_label.apply(lambda row: 'E' if row[labelname] in args.E_class \
                                         else 'NE' if row[labelname] in args.NE_class \
                                         else 'ND', axis=1)
+  labelname = new_label_name
 exclude_labels = args.excludelabels
-df_label = df_label[df_label[new_label_name].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
+df_label = df_label[df_label[labelname].isin(exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
 selectedgenes = df_label['name'].values
 print(bcolors.OKGREEN + f'\t{len(selectedgenes)} labeled genes over a total of {len(genes)}' + bcolors.ENDC)
 #plt.show()
@@ -126,7 +129,6 @@ print(bcolors.OKGREEN + f'\t{len(selectedgenes)} labeled genes over a total of {
 """# Load attributes to be used
 We identified three sets of attributes:
 1. bio attributes, related to gene information (such as, expression, etc.)
-1. GTEX-* attribute, additional biological information of genes 
 Based on user selection, the node attributes are appended in a single matrix of attributes (`x`)
 
 In the attribute matrix `x` there can be NaN or Infinite values. They are corrected as it follow:
@@ -139,9 +141,6 @@ At the end, only nodes (genes) with E or NE labels are selected for the classifi
 """
 
 #@title Choose attributes { form-width: "20%" }
-import re
-r = re.compile('^GTEX*')
-
 def intersection(lst1, lst2):
     lst3 = [value for value in lst1 if value in lst2]
     return lst3
@@ -152,11 +151,7 @@ if "BIO" in args.attributes:
   print(f'Loading attribute matrix "{attr_file}"...')
   x = pd.read_csv(attr_file)
   x = x.drop(columns=['id']) if 'id' in list(x.columns) else x
-  #gtex_attributes = list(filter(r.match, x.columns)) 
-  #bio_attributes = list(set(x.columns).difference(gtex_attributes)) if "BIO" in args.attributes else []
-  #gtex_attributes = gtex_attributes if "GTEX" in args.attributes else [] 
   print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
-  #x = x.filter(items=bio_attributes+gtex_attributes)
   if args.onlyattributes is not None:
   	x = x.filter(items=args.onlyattributes)
   if args.excludeattributes is not None:
@@ -196,7 +191,7 @@ with open(os.path.join(datapath,'genes.txt'), 'r') as filehandle:
 
 
 # print label distribution
-labels = df_label.set_index('name').loc[selectedgenes][new_label_name].values
+labels = df_label.set_index('name').loc[selectedgenes][labelname].values
 distrib = Counter(labels)
 encoder = preprocessing.LabelEncoder()
 y = encoder.fit_transform(labels)  
@@ -205,7 +200,7 @@ rev_classes_mapping = np.array(list(classes_mapping.keys()))
 
 plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
 print(f'Label distribution ...')
-print(bcolors.OKGREEN + f'\tWorking on label "{new_label_name}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'\tWorking on label "{labelname}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
 
 """# Load the PPI+MET network
 The PPI networks is loaded from a CSV file, where
