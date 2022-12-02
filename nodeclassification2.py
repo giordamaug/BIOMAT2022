@@ -150,6 +150,7 @@ if "BIO" in args.attributes:
   attr_file = os.path.join(datapath,args.attrfile)
   print(f'Loading attribute matrix "{attr_file}"...')
   x = pd.read_csv(attr_file)
+  x = x.select_dtypes(include=np.number)
   x = x.drop(columns=['id']) if 'id' in list(x.columns) else x
   print(bcolors.OKGREEN + f'\tselecting attributes: {args.attributes} for {len(genes)} genes' + bcolors.ENDC)
   if args.onlyattributes is not None:
