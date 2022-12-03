@@ -1,4 +1,4 @@
-"label","label_wo_outliers","label_cluster2_kmeans5","label_cluster5_kmeans5","label_cluster4_kmeans5"
+"name","label","label_wo_outliers","label_cluster2_kmeans5","label_cluster5_kmeans5","label_cluster4_kmeans5"
 "MAP2K4","CS6","CS3","CS5","CS3","CS3"
 "FLNC","CS4","CS4","CS6","CS4","CS4"
 "FNTA","CS0","CS0","CS0","CS1","CS0"
