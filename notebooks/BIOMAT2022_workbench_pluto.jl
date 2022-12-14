@@ -80,6 +80,15 @@ function zscoring(df)
 	return StatsBase.transform(dt, Matrix(df))
 end
 
+# ╔═╡ 57f15748-0deb-4e97-a53f-9f6ceb6d1825
+md"""Choose embeddin method and size"""
+
+# ╔═╡ ce1aee4f-4285-45b8-9f3a-0fc4784aedf2
+@bind embedder Select(["Node2Vec", "DeepWalk"])
+
+# ╔═╡ 05890ec2-7ef0-4c3e-b18c-8a3b9734cee2
+@bind embedsize Select([32, 64, 128])
+
 # ╔═╡ e65dbfd5-6741-4d18-9a23-78db42effecb
 function load_data()
 	df = read_attributes(path, dataset, "node_attributes")
@@ -91,7 +100,7 @@ function load_data()
 	dflabel = filter(:most_freq => !ismissing, dflabel)
 	dflabel = filter(row -> row.most_freq ∈ ["E","NE"], dflabel)[!, Not(r"ACH-")]
 	dfjoin = innerjoin(dflabel,df; on=:name)
-	dfembed = read_attributes(path, dataset,  "PPI_Node2Vec_32", "embeddings")
+	dfembed = read_attributes(path, dataset,  "PPI_$(embedder)_$(embedsize)", "newembeddings")
 	dfjoin = innerjoin(dfjoin,dfembed; on=:name)  # join labels/attributes/embedding
 	return dfjoin
 end
@@ -142,7 +151,7 @@ begin
     stratified_cv = StratifiedCV(nfolds=5, rng=1234)
     rows = 1:size(X)[1]
     splits = MLJBase.train_test_pairs(stratified_cv, rows, y)
-    @progress "Classifying..." for s in splits
+    @progress for s in splits
         train, test = s[1], s[2]
         mach = machine(model, X, y, scitype_check_level=0)
         MLJ.fit!(mach, rows=train, verbosity=-1) 
@@ -1073,7 +1082,7 @@ version = "17.4.0+0"
 
 # ╔═╡ Cell order:
 # ╠═d67bb463-c10f-4538-96a1-c3898ab35cbe
-# ╟─13a2d0b2-19bb-442a-898a-b030c3b2f9ea
+# ╠═13a2d0b2-19bb-442a-898a-b030c3b2f9ea
 # ╟─be213a72-b268-4f36-9860-d4c70becf9d9
 # ╟─395da9a0-e72e-4865-9985-e97d6b6d0c20
 # ╠═cf093a50-77c7-11ed-1495-75cf955da2e0
@@ -1081,7 +1090,10 @@ version = "17.4.0+0"
 # ╟─21963c47-4bac-4ab5-b30e-e295a111c02f
 # ╟─b8986ba7-8294-421e-86a9-26f70b0c0c89
 # ╠═66332f00-94b2-4653-8c5c-942f9700fd05
-# ╟─e65dbfd5-6741-4d18-9a23-78db42effecb
+# ╠═57f15748-0deb-4e97-a53f-9f6ceb6d1825
+# ╟─ce1aee4f-4285-45b8-9f3a-0fc4784aedf2
+# ╟─05890ec2-7ef0-4c3e-b18c-8a3b9734cee2
+# ╠═e65dbfd5-6741-4d18-9a23-78db42effecb
 # ╟─07b5ef84-78da-41d4-9e7f-51d2092c0287
 # ╟─48fcaef4-4196-42b0-817c-fd0e797d0495
 # ╠═6eed12cf-6b75-4243-87b3-8facc639637d
