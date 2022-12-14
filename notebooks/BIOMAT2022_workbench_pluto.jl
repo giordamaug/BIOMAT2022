@@ -71,7 +71,7 @@ end
 
 # ╔═╡ b8986ba7-8294-421e-86a9-26f70b0c0c89
 md"""
-Applying z-score normalization to data
+Apply z-score normalization to data
 """
 
 # ╔═╡ 66332f00-94b2-4653-8c5c-942f9700fd05
@@ -98,7 +98,7 @@ end
 
 # ╔═╡ 07b5ef84-78da-41d4-9e7f-51d2092c0287
 md"""
-## Classification with LightGBM
+## Classification with LightGBM
 """
 
 # ╔═╡ 48fcaef4-4196-42b0-817c-fd0e797d0495
@@ -1082,7 +1082,7 @@ version = "17.4.0+0"
 # ╟─b8986ba7-8294-421e-86a9-26f70b0c0c89
 # ╠═66332f00-94b2-4653-8c5c-942f9700fd05
 # ╟─e65dbfd5-6741-4d18-9a23-78db42effecb
-# ╠═07b5ef84-78da-41d4-9e7f-51d2092c0287
+# ╟─07b5ef84-78da-41d4-9e7f-51d2092c0287
 # ╟─48fcaef4-4196-42b0-817c-fd0e797d0495
 # ╠═6eed12cf-6b75-4243-87b3-8facc639637d
 # ╟─00000000-0000-0000-0000-000000000001
