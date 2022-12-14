@@ -92,6 +92,7 @@ md"""Choose embeddin method and size"""
 # ╔═╡ e65dbfd5-6741-4d18-9a23-78db42effecb
 function load_data()
 	df = read_attributes(path, dataset, "node_attributes")
+	df = unique(df, :name)      # remove possible duplicated genes
 	genes = df[!, :name]
 	df = replace_missing(df)
 	df = DataFrame(zscoring(df), names(df))
