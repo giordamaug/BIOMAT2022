@@ -180,7 +180,9 @@ if "BIO" in args.attributes:
   x = x.loc[selectedgenes]
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
-  print(bcolors.OKGREEN + f'\tUsing attributes {list(x.columns)}' + bcolors.ENDC)
+  from pprint import pformat
+  from textwrap import indent
+  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC)
 else:
   x = pd.DataFrame()
 
