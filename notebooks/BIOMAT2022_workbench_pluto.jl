@@ -21,6 +21,8 @@ begin
 	using DataFrames
 	using Statistics
 	using StatsBase
+	using Distributed
+	using ProgressLogging
 end
 
 # ╔═╡ 13a2d0b2-19bb-442a-898a-b030c3b2f9ea
@@ -94,6 +96,25 @@ function load_data()
 	return dfjoin
 end
 
+# ╔═╡ 07b5ef84-78da-41d4-9e7f-51d2092c0287
+md"""
+## Classification with LightGBM
+"""
+
+# ╔═╡ 48fcaef4-4196-42b0-817c-fd0e797d0495
+function confusionmatrix(predictions, labels)
+	classes = vec(unique(labels))
+    d = size(classes)[1]
+    idx = Dict(zip(classes,Vector(1:d)))
+    c = zeros(Int64, d,d)
+    for i in 1:size(labels)[1]
+       c[idx[labels[i]] ,idx[predictions[i]]] += 1
+    end
+	df = DataFrame(c, classes)
+	df[!, :name] = classes
+	return df
+end
+
 # ╔═╡ 6eed12cf-6b75-4243-87b3-8facc639637d
 begin
 	using MLJ
@@ -121,12 +142,12 @@ begin
     stratified_cv = StratifiedCV(nfolds=5, rng=1234)
     rows = 1:size(X)[1]
     splits = MLJBase.train_test_pairs(stratified_cv, rows, y)
-    for s in splits
+    @progress "Classifying..." for s in splits
         train, test = s[1], s[2]
         mach = machine(model, X, y, scitype_check_level=0)
         MLJ.fit!(mach, rows=train, verbosity=-1) 
-        global targets = cat(vec(y[test, :]), dims=1)
-        global preds = cat(MLJ.predict_mode(mach, rows=test), dims=1)
+        global targets = cat(targets, vec(y[test, :]), dims=1)
+        global preds = cat(preds, MLJ.predict_mode(mach, rows=test), dims=1)
     end
     ŷ = convert(CategoricalArray{String3,1,UInt32},  preds)
     y_targets = convert(CategoricalArray{String3,1,UInt32}, targets)
@@ -136,21 +157,18 @@ begin
     println(confusionmatrix(ŷ,y_targets))
 end
 
-# ╔═╡ 07b5ef84-78da-41d4-9e7f-51d2092c0287
-md"""
-## Classification with LightGBM
-"""
-
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 LightGBM = "7acf609c-83a4-11e9-1ffb-b912bcd3b04a"
 MLJ = "add582a8-e3ab-11e8-2d5e-e98b27df1bc7"
 MLJBase = "a7f614a8-145f-11e9-1d2a-a57a1082229d"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
+ProgressLogging = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
@@ -163,6 +181,7 @@ LightGBM = "~0.6.0"
 MLJ = "~0.19.0"
 MLJBase = "~0.21.3"
 PlutoUI = "~0.7.49"
+ProgressLogging = "~0.1.4"
 StableRNGs = "~1.0.0"
 StatsBase = "~0.33.21"
 """
@@ -173,7 +192,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.3"
 manifest_format = "2.0"
-project_hash = "ed0311a3b6c84e1353ee2c7e66e6e4f968bd5af8"
+project_hash = "dc5f8ce5930b40a697fe242ee9edcaca4855de7b"
 
 [[deps.ARFFFiles]]
 deps = ["CategoricalArrays", "Dates", "Parsers", "Tables"]
@@ -275,9 +294,9 @@ version = "0.9.9"
 
 [[deps.Colors]]
 deps = ["ColorTypes", "FixedPointNumbers", "Reexport"]
-git-tree-sha1 = "417b0ed7b8b838aa6ca0a87aadf1bb9eb111ce40"
+git-tree-sha1 = "73e9c4144410f6b11f2f818488728d3afd60943c"
 uuid = "5ae59095-9a9b-59fe-a467-6f913c188581"
-version = "0.12.8"
+version = "0.12.9"
 
 [[deps.Combinatorics]]
 git-tree-sha1 = "08c8b6831dc00bfea825826be0bc8336fc369860"
@@ -442,9 +461,9 @@ uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[deps.HTTP]]
 deps = ["Base64", "CodecZlib", "Dates", "IniFile", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "e1acc37ed078d99a714ed8376446f92a5535ca65"
+git-tree-sha1 = "97b6c88f4df0ff821a6d93dbdcdf9642e66fa718"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.5.5"
+version = "1.6.1"
 
 [[deps.HypergeometricFunctions]]
 deps = ["DualNumbers", "LinearAlgebra", "OpenLibm_jll", "SpecialFunctions", "Test"]
@@ -774,6 +793,12 @@ version = "2.2.2"
 deps = ["Unicode"]
 uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 
+[[deps.ProgressLogging]]
+deps = ["Logging", "SHA", "UUIDs"]
+git-tree-sha1 = "80d919dee55b9c50e8d9e2da5eeafff3fe58b539"
+uuid = "33c8b6b6-d38a-422a-b730-caa89a2f386c"
+version = "0.1.4"
+
 [[deps.ProgressMeter]]
 deps = ["Distributed", "Printf"]
 git-tree-sha1 = "d7a7aef8f8f2d537104f170139553b14dfe39fe9"
@@ -1058,6 +1083,7 @@ version = "17.4.0+0"
 # ╠═66332f00-94b2-4653-8c5c-942f9700fd05
 # ╟─e65dbfd5-6741-4d18-9a23-78db42effecb
 # ╠═07b5ef84-78da-41d4-9e7f-51d2092c0287
+# ╟─48fcaef4-4196-42b0-817c-fd0e797d0495
 # ╠═6eed12cf-6b75-4243-87b3-8facc639637d
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
