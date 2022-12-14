@@ -35,8 +35,6 @@ parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>'
 parser.add_argument('-F', "--labelfile", dest='labelfile', metavar='<labelfile>', type=str, help='label filename (default multiLabels.csv)', default='multiLabels.csv', required=False)
 parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', type=str, help='attribute filename (default integratedNet_nodes_bio.csv)', default='integratedNet_nodes_bio.csv', required=False)
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi_edges.csv)', default='ppi_edges.csv', required=False)
-parser.add_argument('-E', "--essentials", dest='E_class', metavar='<essential-groups>', nargs="+", default=["CS0"], help='CS groups of essential genes (default: CS0, range: [CS0,...,CS9]', required=False)
-parser.add_argument('-N', "--nonessenzials", dest='NE_class', metavar='<not-essential-groups>', nargs="+", default=["CS6", "CS7","CS8","CS9"], help='CS groups of non essential genes (default:  CS6 CS7 CS8 CS9], range: [CS0,...,CS9]', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
