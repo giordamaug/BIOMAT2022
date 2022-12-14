@@ -110,6 +110,10 @@ if labelname in df_label.columns:
     print(bcolors.HEADER + f'Loading label {labelname} from file "{label_file}"...' + bcolors.ENDC)
 else:
     print(bcolors.FAIL + f'FAIL: Label name {labelname} is not in the label file{label_filename}!' + bcolors.ENDC)
+dup = df_label.index.duplicated().sum()
+if dup > 0:
+    print(bcolors.OKGREEN + f'\tRemoving {dup} duplicated genes...' + bcolors.ENDC)
+    df_label = df_label[~df_label.index.duplicated(keep='first')]
 genes = df_label.index.values                                            # get genes with defined labels
 df_label = df_label[df_label[labelname].isin([np.nan] + exclude_labels) == False]                      # drop any row contaning NaN or SC1-SC5 as value
 labels = np.unique(df_label[labelname].values)
@@ -147,6 +151,10 @@ if "BIO" in args.attributes:
   print(bcolors.HEADER + f'Loading attribute matrix "{attr_file}"...' + bcolors.ENDC)
   x = pd.read_csv(attr_file, index_col=0)
   x = x.select_dtypes(include=np.number)     # drop non numeric attributes
+  dup = x.index.duplicated().sum()
+  if dup > 0:
+      print(bcolors.OKGREEN + f'\tRemoving {dup} duplicated genes...' + bcolors.ENDC)
+      x = x[~x.index.duplicated(keep='first')]
   if args.onlyattributes is not None:
   	x = x.filter(items=args.onlyattributes)
   if args.excludeattributes is not None:
@@ -247,12 +255,13 @@ if "EMBED" in args.attributes:
   if args.saveembedding:
     embedding_df.to_csv(embedfilename)
     print(bcolors.OKGREEN + f'\tSaving embedding to file "{embedfilename}"' + bcolors.ENDC)
+  dup = embedding_df.index.duplicated().sum()
+  if dup > 0:
+      print(bcolors.OKGREEN + f'\tRemoving {dup} duplicated genes...' + bcolors.ENDC)
+      embedding_df = embedding_df[~embedding_df.index.duplicated(keep='first')]
   embedding_df = embedding_df.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
-  x = x.join(embedding_df) 
-  #x = pd.concat([embedding_df, x], axis=1)
-  #print(x)
-  #print(df_label)
-  #x= pd.merge([embedding_df, x], axis=1)
+  #x = x.join(embedding_df) 
+  x = pd.concat([embedding_df, x], axis=1)
 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
