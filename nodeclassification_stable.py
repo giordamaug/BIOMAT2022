@@ -42,9 +42,9 @@ parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>'
 parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, help='seed (default: 1)' , default='1', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
 parser.add_argument('-V', "--verbose", action='store_true', required=False)
-parser.add_argument('-S', "--save-embedding", dest='saveembedding',  action='store_true', required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
-parser.add_argument('-L', "--load-embedding", dest='loadembedding',  action='store_true', required=False)
+parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
+parser.add_argument('-L', "--embeddingfile", dest='embeddingfile',  type=str, required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
 parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
@@ -188,28 +188,7 @@ else:
 
 
 
-# print label distribution
-from collections import Counter, OrderedDict
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import LabelEncoder
-labels = df_label.loc[selectedgenes][labelname].values
-distrib = Counter(labels)
-encoder = LabelEncoder()
-y = encoder.fit_transform(labels)  
-classes_mapping = dict(zip(encoder.classes_, encoder.transform(encoder.classes_)))
-rev_classes_mapping = np.array(list(classes_mapping.keys()))
 
-plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
-print(bcolors.HEADER + f'Show label distribution ...' + bcolors.ENDC)
-print(bcolors.OKGREEN + f'\tWorking on label "{labelname}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
-
-"""# Load the PPI+MET network
-The PPI networks is loaded from a CSV file, where
-*   `from` is the column name for edge source (gene index)
-*   `to` is the column name for edge target (gene index)
-*   `weight` is the column name for edge weight
-
-"""
 
 if "EMBED" in args.attributes:
   """# Network embedding with Karateclub""" 
@@ -219,10 +198,13 @@ if "EMBED" in args.attributes:
   if not embeddername in dir():
     raise Exception(bcolors.FAIL + f"{embeddername} is not an embedding method supported in karateclub" + bcolors.ENDC)
   print(bcolors.HEADER + f'Embedding with method "{embeddername}"...' + bcolors.ENDC)
-  embedfilename = os.path.join(args.embeddir,f'{network}_{embeddername}_{args.embedsize}.csv')
-  if args.loadembedding:
-    print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
-    embedding_df = pd.read_csv(embedfilename, index_col=0)
+  if args.embeddingfile is not None:
+    embedfilename = os.path.join(args.embeddir,args.embeddingfile)
+    try:
+      embedding_df = pd.read_csv(embedfilename, index_col=0)
+      print(bcolors.OKGREEN + f'\tLoading precomputed embedding from file "{embedfilename}"' + bcolors.ENDC)
+    except:
+      raise Exception(bcolors.FAIL + f"{embedfilename} is not a valid file!" + bcolors.ENDC)
   else:
     import networkx as nx
     netfile = os.path.join(datapath,args.netfile)
@@ -254,18 +236,42 @@ if "EMBED" in args.attributes:
     embedding_df = pd.DataFrame(embedding, columns = [f'{embeddername}_' + str(i + 1)  for i in range(embedding.shape[1])])
     embedding_df['name'] = [idx2gene_mapping[item] for item in embedding_df.index.values]
     embedding_df = embedding_df.set_index('name')
-  if args.saveembedding:
-    embedding_df.to_csv(embedfilename)
-    print(bcolors.OKGREEN + f'\tSaving embedding to file "{embedfilename}"' + bcolors.ENDC)
+  if args.saveembeddingfile:
+    saveembedfilename = os.path.join(args.embeddir,args.saveembeddingfile)
+    embedding_df.to_csv(saveembedfilename)
+    print(bcolors.OKGREEN + f'\tSaving embedding to file "{saveembedfilename}"' + bcolors.ENDC)
   dup = embedding_df.index.duplicated().sum()
   if dup > 0:
       print(bcolors.OKGREEN + f'\tRemoving {dup} duplicated genes...' + bcolors.ENDC)
       embedding_df = embedding_df[~embedding_df.index.duplicated(keep='first')]
+  selectedgenes = intersection(selectedgenes, embedding_df.index.to_list())
+  print(bcolors.OKGREEN + f'\tgenes in the network are {len(selectedgenes)}' + bcolors.ENDC)
   embedding_df = embedding_df.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
-  #x = x.join(embedding_df) 
-  x = pd.concat([embedding_df, x], axis=1)
-
+  x = embedding_df if x.empty else pd.concat([embedding_df, x], axis=1) 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+
+# print label distribution
+from collections import Counter, OrderedDict
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
+labels = df_label.loc[selectedgenes][labelname].values
+distrib = Counter(labels)
+encoder = LabelEncoder()
+y = encoder.fit_transform(labels)  
+classes_mapping = dict(zip(encoder.classes_, encoder.transform(encoder.classes_)))
+rev_classes_mapping = np.array(list(classes_mapping.keys()))
+
+plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
+print(bcolors.HEADER + f'Show label distribution ...' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'\tWorking on label "{labelname}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
+
+"""# Load the PPI+MET network
+The PPI networks is loaded from a CSV file, where
+*   `from` is the column name for edge source (gene index)
+*   `to` is the column name for edge target (gene index)
+*   `weight` is the column name for edge weight
+
+"""
 
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
