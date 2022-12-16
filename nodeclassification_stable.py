@@ -219,7 +219,7 @@ if "EMBED" in args.attributes:
       G = nx.Graph()
     else:
       G = nx.DiGraph()
-    G.add_nodes_from(range(len(genes)))                                       # add all nodes (genes, also isolated ones)
+    G.add_nodes_from(range(len(allgenes)))                                       # add all nodes (genes, also isolated ones)
     if 'weight' in list(df_net.columns):
       edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]], v[2]) for v in list(df_net[['source','target', 'weight']].values)]      # get the edge list (with weights)
       G.add_weighted_edges_from(edge_list)                                      # add all edges
@@ -247,6 +247,7 @@ if "EMBED" in args.attributes:
   selectedgenes = intersection(selectedgenes, embedding_df.index.to_list())
   print(bcolors.OKGREEN + f'\tgenes in the network are {len(selectedgenes)}' + bcolors.ENDC)
   embedding_df = embedding_df.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
+  x = x.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
   x = embedding_df if x.empty else pd.concat([embedding_df, x], axis=1) 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
