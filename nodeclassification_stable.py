@@ -41,12 +41,11 @@ parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', t
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
 parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, help='seed (default: 1)' , default='1', required=False)
 parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
-parser.add_argument('-V', "--verbose", action='store_true', required=False)
+parser.add_argument('-D', "--tocsv", dest="tocsv", type=str, required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
 parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
 parser.add_argument('-L', "--embeddingfile", dest='embeddingfile',  type=str, required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
-parser.add_argument('-D', "--tocsv", action='store_true', required=False)
 args = parser.parse_args()
 
 seed=args.seed
@@ -249,6 +248,7 @@ if "EMBED" in args.attributes:
   x = embedding_df if x.empty else pd.concat([embedding_df, x], axis=1) 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
+
 # print label distribution
 from collections import Counter, OrderedDict
 import matplotlib.pyplot as plt
@@ -264,13 +264,6 @@ plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', 
 print(bcolors.HEADER + f'Show label distribution ...' + bcolors.ENDC)
 print(bcolors.OKGREEN + f'\tWorking on label "{labelname}": {classes_mapping} {rev_classes_mapping} {dict(distrib)}' + bcolors.ENDC)
 
-"""# Load the PPI+MET network
-The PPI networks is loaded from a CSV file, where
-*   `from` is the column name for edge source (gene index)
-*   `to` is the column name for edge target (gene index)
-*   `weight` is the column name for edge weight
-
-"""
 
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
@@ -300,10 +293,11 @@ kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
 genes = x.index.values
 X = x.to_numpy()
-if args.tocsv:
+if args.tocsv is not None:
   newd = x.copy()
   newd['class'] = y
-  newd.to_csv(os.path.join(datapath,'eg.csv'), index=False)
+  newd.to_csv(os.path.join(datapath,args.tocsv), index=True)
+  print(bcolors.HEADER + f'Saving dataset to file {args.tocsv}' + bcolors.ENDC)
 
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
