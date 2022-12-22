@@ -158,7 +158,7 @@ if "BIO" in args.attributes:
   if args.onlyattributes is not None:
   	x = x.filter(items=args.onlyattributes)
   if args.excludeattributes is not None:
-    x = x.drop(columns=args.excludeattributes)
+    x = x.drop(columns=intersection(args.excludeattributes, list(x.columns)))
   droppedcol = 0
   nancount = x.isnull().sum().sum()
   for col in x.columns[x.isna().any()].tolist():
@@ -182,11 +182,9 @@ if "BIO" in args.attributes:
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
   from pprint import pformat
   from textwrap import indent
-  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC)# if len(list(x.columns)) < 500 else None
 else:
   x = pd.DataFrame()
-
-
 
 
 
@@ -247,7 +245,7 @@ if "EMBED" in args.attributes:
   selectedgenes = intersection(selectedgenes, embedding_df.index.to_list())
   print(bcolors.OKGREEN + f'\tgenes in the network are {len(selectedgenes)}' + bcolors.ENDC)
   embedding_df = embedding_df.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
-  x = x.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
+  x = x.loc[selectedgenes] if not x.empty else x                                   # keep only embeddings of selected genes (those with labels)
   x = embedding_df if x.empty else pd.concat([embedding_df, x], axis=1) 
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
 
