@@ -25,7 +25,7 @@ from operator import index
 import numpy as np
 
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
-parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], choices=["BIO", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,EMBED)', required=False)
+parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], choices=["BIO", "SEQ", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,EMBED)', required=False)
 parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<excludelabels>', nargs="+", default=[], help='labels to exclude (default NaN, values any list)', required=False)
 parser.add_argument('-i', "--onlyattributes", dest='onlyattributes', metavar='<onlyattributes>', nargs="+", default=None, help='attributes to use (default All, values any list)', required=False)
 parser.add_argument('-o', "--excludeattributes", dest='excludeattributes', metavar='<excludeattributes>', nargs="+", default=None, help='attributes to exlude (default None, values any list)', required=False)
@@ -34,6 +34,7 @@ parser.add_argument('-d', "--datadir", dest='datadir', metavar='<data-dir>', typ
 parser.add_argument('-l', "--labelname", dest='labelname', metavar='<labelname>', type=str, help='label name (default label_CS_ACH_most_freq)', default='label_CS_ACH_most_freq', required=False)
 parser.add_argument('-F', "--labelfile", dest='labelfile', metavar='<labelfile>', type=str, help='label filename (default multiLabels.csv)', default='multiLabels.csv', required=False)
 parser.add_argument('-A', "--attrfile", dest='attrfile', metavar='<attrfile>', type=str, help='attribute filename (default integratedNet_nodes_bio.csv)', default='integratedNet_nodes_bio.csv', required=False)
+parser.add_argument('-B', "--seqfile", dest='seqfile', metavar='<seqfile>', type=str, help='attribute filename', required=False)
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi_edges.csv)', default='ppi_edges.csv', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
@@ -181,11 +182,45 @@ if "BIO" in args.attributes:
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
   from pprint import pformat
   from textwrap import indent
-  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC)# if len(list(x.columns)) < 500 else None
+  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC) if len(list(x.columns)) < 50 else None
 else:
   x = pd.DataFrame()
 
-
+if "SEQ" in args.attributes:
+  seq_file = os.path.join(datapath,args.seqfile)
+  print(bcolors.HEADER + f'Loading sequence attribute matrix "{seq_file}"...' + bcolors.ENDC)
+  df_seq = pd.read_csv(seq_file, index_col=0)
+  df_seq = df_seq.select_dtypes(include=np.number)     # drop non numeric attributes
+  dup = df_seq.index.duplicated().sum()
+  if dup > 0:
+      print(bcolors.OKGREEN + f'\tRemoving {dup} duplicated genes...' + bcolors.ENDC)
+      df_seq = df_seq[~df_seq.index.duplicated(keep='first')]
+  droppedcol = 0
+  nancount = df_seq.isnull().sum().sum()
+  for col in df_seq.columns[df_seq.isna().any()].tolist():
+    mean_value=df_seq[col].mean()          # Replace NaNs in column with the mean of values in the same column
+    if mean_value is not np.nan:
+        df_seq[col].fillna(value=mean_value, inplace=True)
+    else:                             # otherwise, if the mean is NaN, remove the column
+        df_seq = df_seq.drop(col, 1)
+  print(bcolors.OKGREEN + f'\tFix: {nancount} NaN values - {np.isinf(df_seq).values.sum()} Infinite value - {droppedcol} dropped null columns' + bcolors.ENDC)
+  normalize_node = "" #@param ["minmax", "zscore", ""]
+  if normalize_node == 'minmax':
+      print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
+      df_seq = (df_seq-df_seq.min())/(df_seq.max()-df_seq.min())
+  elif normalize_node == 'zscore':
+      print(bcolors.OKGREEN + "\tgene attributes normalization (zscore)..." + bcolors.ENDC)
+      df_seq = (df_seq-df_seq.mean())/df_seq.std()
+  selectedgenes = intersection(df_seq.index.to_list(), selectedgenes)
+  print(bcolors.OKGREEN + f'\tgenes with sequence attributes are {len(selectedgenes)}' + bcolors.ENDC)
+  df_seq = df_seq.loc[selectedgenes]
+  df_seq = df_seq[~df_seq.index.duplicated(keep='first')]   # remove eventually duplicated index
+  x = x.loc[selectedgenes] if not x.empty else x
+  x = pd.concat([df_seq, x], axis=1) 
+  print(bcolors.OKGREEN + f'\tNew attribute matrix x{x.shape}' + bcolors.ENDC)
+  from pprint import pformat
+  from textwrap import indent
+  print(bcolors.OKGREEN + f'\tUsing attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC) if len(list(x.columns)) < 200 else None
 
 if "EMBED" in args.attributes:
   """# Network embedding with Karateclub""" 
