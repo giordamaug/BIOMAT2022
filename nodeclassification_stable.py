@@ -47,6 +47,7 @@ parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true
 parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
 parser.add_argument('-L', "--embeddingfile", dest='embeddingfile',  type=str, required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
+parser.add_argument('-Q', "--removefeat", action='store_true', required=False)
 args = parser.parse_args()
 
 seed=args.seed
@@ -168,7 +169,9 @@ if "BIO" in args.attributes:
     else:                             # otherwise, if the mean is NaN, remove the column
         x = x.drop(col, 1)
   print(bcolors.OKGREEN + f'\tFix: {nancount} NaN values - {np.isinf(x).values.sum()} Infinite value - {droppedcol} dropped null columns' + bcolors.ENDC)
-  normalize_node = "" #@param ["minmax", "zscore", ""]
+  normalize_node = args.normalize #@param ["minmax", "zscore", ""]
+  print(bcolors.OKGREEN + f'\tRemoving constant columns: new shape x{x.shape}' + bcolors.ENDC)
+  x = x.loc[:,x.apply(pd.Series.nunique) != 1] # drop constant columns values
   if normalize_node == 'minmax':
       print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
       x = (x-x.min())/(x.max()-x.min())
@@ -322,6 +325,10 @@ from imblearn.ensemble import RUSBoostClassifier
 from sklearn.dummy import DummyClassifier
 from lightgbm import LGBMClassifier
 from tabulate import tabulate
+
+print(x)
+
+
 set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
@@ -333,6 +340,13 @@ if args.tocsv is not None:
   newd['class'] = y
   newd.to_csv(os.path.join(datapath,args.tocsv), index=True)
   print(bcolors.HEADER + f'Saving dataset to file {args.tocsv}' + bcolors.ENDC)
+
+if args.removefeat:
+  print(bcolors.HEADER + f'Selecting features ...' + bcolors.ENDC)
+  from sklearn.feature_selection import SelectKBest
+  from sklearn.feature_selection import chi2
+  X = SelectKBest(chi2, k=10).fit_transform(X, y)
+  print(bcolors.OKGREEN + f'\tNew attribute matrix x{X.shape}' + bcolors.ENDC)
 
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
