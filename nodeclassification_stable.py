@@ -170,7 +170,7 @@ if "BIO" in args.attributes:
         x = x.drop(col, 1)
   print(bcolors.OKGREEN + f'\tFix: {nancount} NaN values - {np.isinf(x).values.sum()} Infinite value - {droppedcol} dropped null columns' + bcolors.ENDC)
   normalize_node = args.normalize #@param ["minmax", "zscore", ""]
-  print(bcolors.OKGREEN + f'\tRemoving constant columns: new shape x{x.shape}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'\tRemoving {len(list(x.loc[:, x.apply(pd.Series.nunique)==1].columns))} constant columns.' + bcolors.ENDC)
   x = x.loc[:,x.apply(pd.Series.nunique) != 1] # drop constant columns values
   if normalize_node == 'minmax':
       print(bcolors.OKGREEN + "\tgene attributes normalization (minmax)..." + bcolors.ENDC)
@@ -326,9 +326,6 @@ from sklearn.dummy import DummyClassifier
 from lightgbm import LGBMClassifier
 from tabulate import tabulate
 
-print(x)
-
-
 set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
@@ -343,9 +340,11 @@ if args.tocsv is not None:
 
 if args.removefeat:
   print(bcolors.HEADER + f'Selecting features ...' + bcolors.ENDC)
-  from sklearn.feature_selection import SelectKBest
-  from sklearn.feature_selection import chi2
-  X = SelectKBest(chi2, k=10).fit_transform(X, y)
+  from sklearn.feature_selection import RFE
+  from sklearn.svm import SVR
+  estimator = SVR(kernel="linear")
+  selector = RFE(estimator, n_features_to_select=100, step=1)
+  X = selector.fit_transform(X, y)
   print(bcolors.OKGREEN + f'\tNew attribute matrix x{X.shape}' + bcolors.ENDC)
 
 nclasses = len(classes_mapping)
