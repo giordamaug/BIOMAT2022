@@ -41,7 +41,7 @@ parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>'
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
 parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, help='seed (default: 1)' , default='1', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP|LG)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN', 'LG'], default='RF', required=False)
 parser.add_argument('-D', "--tocsv", dest="tocsv", type=str, required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
 parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
@@ -57,7 +57,8 @@ classifier_map = {'RF' : 'RandomForestClassifier',
                   'SVM' : 'SVC', 
                   'RUS':  'RUSBoostClassifier',
                   'XGB': 'XGBClassifier',
-                  'LGBM': 'LGBMClassifier'}
+                  'LGBM': 'LGBMClassifier',
+                  'LG': 'LogitBoost'}
 
 classifiers_args = {
   'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
@@ -65,7 +66,8 @@ classifiers_args = {
   'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
   'RUS': {'random_state' : seed},
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
-  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'}
+  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
+  'LG' : {'random_state' : seed, 'n_estimator':200 }
 }
 
 import warnings
@@ -324,6 +326,7 @@ from sklearn.ensemble import AdaBoostClassifier
 from imblearn.ensemble import RUSBoostClassifier
 from sklearn.dummy import DummyClassifier
 from lightgbm import LGBMClassifier
+from logitboost import LogitBoost
 from tabulate import tabulate
 
 set_seed(seed)
