@@ -67,7 +67,7 @@ classifiers_args = {
   'RUS': {'random_state' : seed},
   'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
   'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
-  'LG' : {'random_state' : seed, 'n_estimator':200 }
+  'LG' : {'random_state' : seed, 'n_estimators':200 }
 }
 
 import warnings
