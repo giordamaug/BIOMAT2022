@@ -162,14 +162,21 @@ if "BIO" in args.attributes:
   	x = x.filter(items=args.onlyattributes)
   if args.excludeattributes is not None:
     x = x.drop(columns=intersection(args.excludeattributes, list(x.columns)))
+  # check binary columns
+  bincolnames = list(x.loc[:, x.isin([0,1]).all()].columns)
+  if len(bincolnames) > 0:
+        print(bcolors.OKGREEN + f'\There are {len(bincolnames)} binary attributes... (skip normalization on them)' + bcolors.ENDC)
   droppedcol = 0
   nancount = x.isnull().sum().sum()
-  for col in x.columns[x.isna().any()].tolist():
-    mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
-    if mean_value is not np.nan:
-        x[col].fillna(value=mean_value, inplace=True)
-    else:                             # otherwise, if the mean is NaN, remove the column
-        x = x.drop(col, 1)
+  for col in x.columns[x.isna().any()].tolist() and not in bincolnames
+    if col not in bincolnames:
+      mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
+      if mean_value is not np.nan:
+          x[col].fillna(value=mean_value, inplace=True)
+      else:                             # otherwise, if the mean is NaN, remove the column
+          x = x.drop(col, 1)
+    else:
+      x[col].fillna(value=0, inplace=True)  # Replca Nana with zeros if binary column
   print(bcolors.OKGREEN + f'\tFix: {nancount} NaN values - {np.isinf(x).values.sum()} Infinite value - {droppedcol} dropped null columns' + bcolors.ENDC)
   normalize_node = args.normalize #@param ["minmax", "zscore", ""]
   print(bcolors.OKGREEN + f'\tRemoving {len(list(x.loc[:, x.apply(pd.Series.nunique)==1].columns))} constant columns.' + bcolors.ENDC)
