@@ -47,28 +47,13 @@ parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true
 parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
 parser.add_argument('-L', "--embeddingfile", dest='embeddingfile',  type=str, required=False)
 parser.add_argument('-X', "--display", action='store_true', required=False)
+parser.add_argument('-G', "--proba", action='store_true', required=False)
 parser.add_argument('-Q', "--removefeat", action='store_true', required=False)
 args = parser.parse_args()
 
 seed=args.seed
 
-classifier_map = {'RF' : 'RandomForestClassifier', 
-                  'MLP': 'MLPClassifier', 
-                  'SVM' : 'SVC', 
-                  'RUS':  'RUSBoostClassifier',
-                  'XGB': 'XGBClassifier',
-                  'LGBM': 'LGBMClassifier',
-                  'LG': 'LogitBoost'}
 
-classifiers_args = {
-  'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
-  'MLP': {'random_state' : seed}, 
-  'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
-  'RUS': {'random_state' : seed},
-  'XGB': {'random_state' : seed, 'eval_metric' : 'logloss', 'scale_pos_weight' : 0.2},
-  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
-  'LG' : {'random_state' : seed, 'n_estimators':200 }
-}
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -290,8 +275,36 @@ classes_mapping = dict(zip(encoder.classes_, encoder.transform(encoder.classes_)
 rev_classes_mapping = np.array(list(classes_mapping.keys()))
 
 plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
-print(bcolors.OKGREEN + f'\t\t- new label distribution:  {dict(df_label_reduced[labelname].value_counts())}' + bcolors.ENDC)
+distrib = dict(df_label_reduced[labelname].value_counts())
+print(bcolors.OKGREEN + f'\t\t- new label distribution:  {distrib}' + bcolors.ENDC)
 
+### set balancing in method paramters
+classifier_map = {'RF' : 'RandomForestClassifier', 
+                  'MLP': 'MLPClassifier', 
+                  'SVM' : 'SVC', 
+                  'RUS':  'RUSBoostClassifier',
+                  'XGB': 'XGBClassifier',
+                  'LGBM': 'LGBMClassifier',
+                  'LG': 'LogitBoost'}
+
+classifiers_args = {
+  'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
+  'MLP': {'random_state' : seed}, 
+  'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
+  'RUS': {'random_state' : seed},
+  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
+  'LG' : {'random_state' : seed, 'n_estimators':200 }
+}
+if len(distrib.keys()) == 2:
+  first, second = list(distrib.values())
+  if first < second:
+    factor = round(float(first)/float(second), 2)
+    classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', 'scale_pos_weight' : float(first)/float(second)}
+  else:
+    factor = round(float(second)/float(first), 2)
+  classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', 'scale_pos_weight' : factor}
+else:
+  classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss'}
 
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
@@ -343,17 +356,24 @@ cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
 gg = np.array([])
 yy = np.array([], dtype=np.int)
-predictions = np.array([])
+probabilities = np.array([])
+predictions = np.array([], dtype=int)
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
 print(bcolors.HEADER + f'Classification with method "{method}"...' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'\t\t- classifier params: {classifiers_args[method]}' + bcolors.ENDC)
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
     yy = np.concatenate((yy, test_y))
     gg = np.concatenate((gg, genes[test_idx]))
     clf = globals()[classifier_map[args.method]](**classifiers_args[args.method]) if args.tuneparams else globals()[classifier_map[args.method]]()
-    preds = clf.fit(train_x, train_y).predict(test_x)
+    if args.proba:
+      probs = clf.fit(train_x, train_y).predict_proba(test_x)
+      preds = np.argmax(probs, axis=1)
+      probabilities = np.concatenate((probabilities, probs[:, 0]))
+    else:
+      preds = clf.fit(train_x, train_y).predict(test_x)
     cm = confusion_matrix(test_y, preds)
     cma += cm.astype(int)
     predictions = np.concatenate((predictions, preds))
@@ -370,3 +390,8 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
+if args.proba:
+  df_results = pd.DataFrame({ 'gene': gg, 'label': yy, 'E_prob': probabilities, 'prediction': predictions})
+  df_results = df_results.set_index(['gene'])
+  df_results.to_csv('results.csv')
+  print(df_results)
