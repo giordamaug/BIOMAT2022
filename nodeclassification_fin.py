@@ -23,6 +23,24 @@ class bcolors:
 import argparse
 from operator import index
 import numpy as np
+from tqdm import tqdm
+
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.compose import make_column_transformer
+from sklearn.pipeline import make_pipeline
+from sklearn.compose import make_column_selector as selector
+from sklearn.neural_network import MLPClassifier
+import sys
+from xgboost import XGBClassifier
+from sklearn.model_selection import StratifiedKFold, KFold, train_test_split
+from sklearn.metrics import *
+from sklearn.ensemble import AdaBoostClassifier, ExtraTreesClassifier, VotingClassifier
+from imblearn.ensemble import RUSBoostClassifier
+from sklearn.dummy import DummyClassifier
+from lightgbm import LGBMClassifier
+from logitboost import LogitBoost
+from tabulate import tabulate
 
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], choices=["BIO", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,EMBED)', required=False)
@@ -38,10 +56,11 @@ parser.add_argument('-B', "--seqfile", dest='seqfile', metavar='<seqfile>', type
 parser.add_argument('-P', "--netfile", dest='netfile', metavar='<netfile>', type=str, help='network filename (default ppi_edges.csv)', default='ppi_edges.csv', required=False)
 parser.add_argument('-n', "--network", dest='network', metavar='<network>', type=str, help='network (default: PPI, choice: PPI|MET|MET+PPI)', choices=['PPI', 'MET', 'MET+PPI'], default='PPI', required=False)
 parser.add_argument('-Z', "--normalize", dest='normalize', metavar='<normalize>', type=str, help='normalize mode (default: None, choice: None|zscore|minmax)', choices=[None, 'zscore', 'minmax'], default=None, required=False)
+parser.add_argument('-I', "--imputation", dest='imputation', metavar='<imputation>', type=str, help='imputation mode (default: None, choice: None|mean|zero)', choices=[None, 'mean', 'zero'], default=None, required=False)
 parser.add_argument('-e', "--embedder", dest='embedder', metavar='<embedder>', type=str, help='embedder name (default: RandNE, choice: RandNE|Node2Vec|GLEE|DeepWalk|HOPE|... any other)' , default='RandNE', required=False)
 parser.add_argument('-s', "--embedsize", dest='embedsize', metavar='<embedsize>', type=int, help='embed size (default: 128)' , default='128', required=False)
 parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, help='seed (default: 1)' , default='1', required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP|LG)', choices=['RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'MLP', 'WNN', 'LG'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP|LG|EXT|VC)', choices=['VC', 'RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'EXT', 'MLP', 'WNN', 'LG'], default='RF', required=False)
 parser.add_argument('-D', "--tocsv", dest="tocsv", type=str, required=False)
 parser.add_argument('-O', "--tuneparams", dest='tuneparams',  action='store_true', required=False)
 parser.add_argument('-S', "--saveembeddingfile", dest='saveembeddingfile', type=str, required=False)
@@ -98,23 +117,23 @@ if labelname in df_label.columns:
     print(bcolors.HEADER + f'Loading label {labelname} from file "{label_file}"...' + bcolors.ENDC)
 else:
     print(bcolors.FAIL + f'FAIL: Label name {labelname} is not in the label file{label_filename}!' + bcolors.ENDC)
-print(bcolors.OKCYAN + f'\tLabeling...' + bcolors.ENDC)
-print(bcolors.OKGREEN + f'\t\t- working on label "{labelname}""...' + bcolors.ENDC)
+print(bcolors.OKCYAN + f'Labeling...' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- working on label "{labelname}""...' + bcolors.ENDC)
 dup = df_label.index.duplicated().sum()
 if dup > 0:
     df_label = df_label[~df_label.index.duplicated(keep='first')]
-print(bcolors.OKGREEN + f'\t\t- removing {dup} duplicated genes...' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- removing {dup} duplicated genes...' + bcolors.ENDC)
 genes = df_label.index.values                                                                    # get genes with defined labels
 df_label = df_label[df_label[labelname].isin([np.nan] + exclude_labels) == False]                # drop any row contaning NaN or SC1-SC5 as value
 labels = np.unique(df_label[labelname].values)
-print(bcolors.OKGREEN + f'\t\t- used label values {labels} (excluded {exclude_labels})' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- used label values {labels} (excluded {exclude_labels})' + bcolors.ENDC)
 for key,newkey in label_aliases.items():
     if key in labels:
-        print(bcolors.OKGREEN + f'\t\t- replacing label {key} with {newkey}' + bcolors.ENDC)
+        print(bcolors.OKGREEN + f'- replacing label {key} with {newkey}' + bcolors.ENDC)
         df_label = df_label.replace(key, newkey)
 selectedgenes = df_label.index.values
-print(bcolors.OKGREEN + f'\t\t- {len(selectedgenes)} labeled genes over a total of {len(genes)}' + bcolors.ENDC)
-print(bcolors.OKGREEN + f'\t\t- label distribution: {dict(df_label[labelname].value_counts())}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- {len(selectedgenes)} labeled genes over a total of {len(genes)}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- label distribution: {dict(df_label[labelname].value_counts())}' + bcolors.ENDC)
 
 
 """# Load attributes to be used
@@ -142,60 +161,88 @@ if "BIO" in args.attributes:
   x = pd.read_csv(attr_file, index_col=0)
   x = x.select_dtypes(include=np.number)     # drop non numeric attributes
   orignrows = x.shape[0]
-  print(bcolors.OKCYAN + f'\tFiltering attributes...' + bcolors.ENDC)
+  print(bcolors.OKCYAN + f'Filtering attributes...' + bcolors.ENDC)
   if args.onlyattributes is not None:
     x = x.filter(items=args.onlyattributes)
   if args.excludeattributes is not None:
     x = x.drop(columns=intersection(args.excludeattributes, list(x.columns)))
-  print(bcolors.OKCYAN + f'\tStatistics...' + bcolors.ENDC)
+  print(bcolors.OKCYAN + f'Statistics...' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- found {len(x.columns)} data columns' + bcolors.ENDC)
   dup = x.index.duplicated().sum()
   constcolumns = list(x.loc[:, x.apply(pd.Series.nunique)==1].columns)
   nancolumns = x.columns[x.isna().all()].tolist()
-  print(bcolors.OKGREEN + f'\t\t- {dup} duplicated genes (removed!)' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {dup} duplicated genes (removed!)' + bcolors.ENDC)
   x = x[~x.index.duplicated(keep='first')]   # remove eventually duplicated index
   if dup > 0:
       x = x[~x.index.duplicated(keep='first')]
-  print(bcolors.OKGREEN + f'\t\t- {len(nancolumns)} null columns (removed!)' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {len(nancolumns)} null columns (removed!)' + bcolors.ENDC)
   if len(nancolumns) > 0:
       x = x.drop(nancolumns, axis=1)
-  print(bcolors.OKGREEN + f'\t\t- {len(constcolumns)} constant columns (removed!)' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {len(constcolumns)} constant columns (removed!)' + bcolors.ENDC)
   if len(constcolumns) > 0:
       x = x.drop(constcolumns, axis=1)
   bincolnames = list(x.loc[:, x.isin([0.0,1.0, np.nan]).all()].columns)
   nbinary = len(bincolnames) if len(bincolnames) > 1 else 0
-  print(bcolors.OKGREEN + f'\t\t- {nbinary} binary attributes (no normalization!)' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {nbinary} binary attributes (no normalization!)' + bcolors.ENDC)
 
   nancount = x.isnull().sum().sum()
-  print(bcolors.OKGREEN + f'\t\t- {nancount} null values' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {nancount} null values' + bcolors.ENDC)
   ninf = np.isinf(x).values.sum()
-  print(bcolors.OKGREEN + f'\t\t- {ninf} Infinite values' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- {ninf} Infinite values' + bcolors.ENDC)
 
-  print(bcolors.OKCYAN + f'\tImputation...' + bcolors.ENDC)
-  realcolumns = list(set(x.columns[x.isna().any()].tolist()) - set(bincolnames)) 
-  print(bcolors.OKGREEN + f'\t\t- fixing {x[realcolumns].isnull().sum().sum()} null values in {len(realcolumns)} real columns' + bcolors.ENDC)
-  for col in realcolumns:
-      mean_value=x[col].mean()          # Replace NaNs in column with the mean of values in the same column
-      x[col].fillna(value=mean_value, inplace=True)
-  print(bcolors.OKGREEN + f'\t\t- fixing {int(x[bincolnames].isnull().sum().sum())} null values in {len(bincolnames)} binary columns' + bcolors.ENDC)
-  for col in bincolnames:
-      mostcommon = x[col].mode()
-      x[col].fillna(value=mostcommon, inplace=True)
+  realcolumns = list(set(x.columns) - set(bincolnames)) 
 
-  print(bcolors.OKCYAN + f'\tNormalization with "{args.normalize}"...' + bcolors.ENDC)
-  if args.normalize == 'minmax':
-      x = (x-x.min())/(x.max()-x.min())
-  elif args.normalize == 'zscore':
-      x = (x-x.mean())/x.std()
-  print(bcolors.OKGREEN + f'\t\t- skipping {nbinary} binary columns' + bcolors.ENDC)
+  def impute(x, realcolumns, bincolumns, mode):
+    df = x.copy()
+    print(bcolors.OKGREEN + f'- fixing {int(df[realcolumns].isnull().sum().sum())} null values in {len(realcolumns)}/{len(df.columns)} real columns' + bcolors.ENDC)
+    if mode == "mean":
+      for col in tqdm(realcolumns): 
+         mean_value= df[col].mean()
+         if np.isnan(mean_value):
+            df = df.drop(columns=[col])
+         else:
+            df[col].fillna(value=mean_value, inplace=True)
+    elif mode == "zero":
+      for col in df.columns: 
+         df[col].fillna(value=0, inplace=True)
+    else:
+      raise Exception(f'Imputation not supported "{mode}"!')
+    print(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns' + bcolors.ENDC)
+    for col in tqdm(bincolumns):
+        mostcommon = df[col].mode()[0] if len(df[col].mode()) > 0 else 0
+        df[col].fillna(value=mostcommon, inplace=True)
+    print(bcolors.OKGREEN + f'- remaining {df.isnull().sum().sum()} null values' + bcolors.ENDC)
+    return df
+
+  def normalize(x, columns, mode):
+    df = x.copy()
+    print(bcolors.OKGREEN + f'- applying normalization to {len(columns)} columns' + bcolors.ENDC)
+    for col in tqdm(columns):
+      if mode == 'minmax':
+          df[col] = (df[col]-df[col].min())/(df[col].max()-df[col].min())
+      elif args.normalize == 'zscore':
+          df[col] = (df[col]-df[col].mean())/df[col].std()
+      else:
+          raise Exception(f'Imputation not supported "{mode}"!')
+    return df
+
+  if args.imputation is not None:
+    print(bcolors.OKCYAN + f'Imputation with "{args.imputation}"...' + bcolors.ENDC)
+    x = impute(x, realcolumns, bincolnames, args.imputation)
+
+  if args.normalize is not None:
+    print(bcolors.OKCYAN + f'Normalization with "{args.normalize}"...' + bcolors.ENDC)
+    x = normalize(x, realcolumns, args.normalize) 
+    print(bcolors.OKGREEN + f'- skipping {nbinary} binary columns' + bcolors.ENDC)
 
   selectedgenes = intersection(x.index.to_list(), selectedgenes)
-  print(bcolors.OKCYAN + f'\tReduction...' + bcolors.ENDC)
-  print(bcolors.OKGREEN + f'\t\t- dataset reduced from {orignrows} to {len(selectedgenes)} genes' + bcolors.ENDC)
+  print(bcolors.OKCYAN + f'Reduction...' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- dataset reduced from {orignrows} to {len(selectedgenes)} genes' + bcolors.ENDC)
   x = x.loc[selectedgenes]
-  print(bcolors.OKGREEN + f'\t\t- new attribute matrix x{x.shape}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- new attribute matrix x{x.shape}' + bcolors.ENDC)
   from pprint import pformat
   from textwrap import indent
-  print(bcolors.OKGREEN + f'\t\t- using attributes:\n' + indent(pformat(list(x.columns)),'\t') + bcolors.ENDC) if len(list(x.columns)) < 50 else None
+  print(bcolors.OKGREEN + f'- using attributes:\n' + indent(pformat(list(x.columns)),'') + bcolors.ENDC) if len(list(x.columns)) < 50 else None
 else:
   x = pd.DataFrame()
 
@@ -218,7 +265,7 @@ if "EMBED" in args.attributes:
     import networkx as nx
     netfile = os.path.join(datapath,args.netfile)
     df_net = pd.read_csv(netfile, index_col=0)
-    print(bcolors.OKGREEN + f'\tLoading "{network}" network file "{netfile}" ...' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'Loading "{network}" network file "{netfile}" ...' + bcolors.ENDC)
     allgenes = np.union1d(df_net["source"].values,df_net["target"].values)       # get genes with defined labels
     indices = np.arange(len(allgenes))
     gene2idx_mapping = { g : i  for g,i in zip(allgenes,indices) }             # create mapping index by gene name
@@ -235,10 +282,10 @@ if "EMBED" in args.attributes:
     else:
       edge_list = [(gene2idx_mapping[v[0]], gene2idx_mapping[v[1]]) for v in list(df_net[['source','target']].values)]    # get the edge list (with weights)
       G.add_edges_from(edge_list)                                      # add all edges
-    print(bcolors.OKGREEN + "\t" + nx.info(G)  + bcolors.ENDC)
-    print(bcolors.OKGREEN + f'\tThere are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
-    print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
-    print(bcolors.OKGREEN + f'\tGraph {"is" if nx.is_directed(G) else "is not"} directed' + bcolors.ENDC)
+    print(bcolors.OKGREEN + "" + nx.info(G)  + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'There are {len(list(nx.isolates(G)))} isolated genes' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'Graph {"is" if nx.is_weighted(G) else "is not"} weighted' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'Graph {"is" if nx.is_directed(G) else "is not"} directed' + bcolors.ENDC)
     embedder = globals()[embeddername](dimensions=args.embedsize)
     embedder.fit(G)
     embedding = embedder.get_embedding()
@@ -248,18 +295,18 @@ if "EMBED" in args.attributes:
   if args.saveembeddingfile:
     saveembedfilename = os.path.join(args.embeddir,args.saveembeddingfile)
     embedding_df.to_csv(saveembedfilename)
-    print(bcolors.OKGREEN + f'\tSaving embedding to file "{saveembedfilename}"' + bcolors.ENDC)
-  print(bcolors.OKCYAN + f'\tPPI reduction...' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'Saving embedding to file "{saveembedfilename}"' + bcolors.ENDC)
+  print(bcolors.OKCYAN + f'PPI reduction...' + bcolors.ENDC)
   dup = embedding_df.index.duplicated().sum()
   if dup > 0:
-      print(bcolors.OKGREEN + f'\t\t- removing {dup} duplicated genes in PPI...' + bcolors.ENDC)
+      print(bcolors.OKGREEN + f'- removing {dup} duplicated genes in PPI...' + bcolors.ENDC)
       embedding_df = embedding_df[~embedding_df.index.duplicated(keep='first')]
   selectedgenes = intersection(selectedgenes, embedding_df.index.to_list())
-  print(bcolors.OKGREEN + f'\t\t- genes found in network are {len(selectedgenes)}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- genes found in network are {len(selectedgenes)}' + bcolors.ENDC)
   embedding_df = embedding_df.loc[selectedgenes]                                     # keep only embeddings of selected genes (those with labels)
   x = x.loc[selectedgenes] if not x.empty else x                                   # keep only embeddings of selected genes (those with labels)
   x = embedding_df if x.empty else pd.concat([embedding_df, x], axis=1) 
-  print(bcolors.OKGREEN + f'\t\t- new attribute matrix x{x.shape}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'- new attribute matrix x{x.shape}' + bcolors.ENDC)
 
 
 # print label distribution
@@ -276,7 +323,7 @@ rev_classes_mapping = np.array(list(classes_mapping.keys()))
 
 plt.pie(list(distrib.values()), labels=list(distrib.keys()), autopct='%2.1f%%', startangle=90)
 distrib = dict(df_label_reduced[labelname].value_counts())
-print(bcolors.OKGREEN + f'\t\t- new label distribution:  {distrib}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- new label distribution:  {distrib}' + bcolors.ENDC)
 
 ### set balancing in method paramters
 classifier_map = {'RF' : 'RandomForestClassifier', 
@@ -284,51 +331,60 @@ classifier_map = {'RF' : 'RandomForestClassifier',
                   'SVM' : 'SVC', 
                   'RUS':  'RUSBoostClassifier',
                   'XGB': 'XGBClassifier',
+                  'EXT': 'ExtraTreesClassifier',
                   'LGBM': 'LGBMClassifier',
+                  'VC' : 'VotingClassifier',
                   'LG': 'LogitBoost'}
 
-classifiers_args = {
-  'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
-  'MLP': {'random_state' : seed}, 
-  'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
-  'RUS': {'random_state' : seed},
-  'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
-  'LG' : {'random_state' : seed, 'n_estimators':200 }
-}
-if len(distrib.keys()) == 2:
-  first, second = list(distrib.values())
-  if first < second:
-    factor = round(float(first)/float(second), 2)
-    classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', 'scale_pos_weight' : float(first)/float(second)}
-  else:
-    factor = round(float(second)/float(first), 2)
-  classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', 'scale_pos_weight' : factor}
+if args.tuneparams:
+  classifiers_args = {
+    'RF' : {'random_state' : seed, 'class_weight': 'balanced'}, 
+    'MLP': {'random_state' : seed}, 
+    'SVM' : {'random_state' : seed, 'class_weight': 'balanced'}, 
+    'RUS': {'random_state' : seed},
+    'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
+    'EXT': {'random_state' : seed, 'class_weight': 'balanced'},
+    'XGB': {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', },
+    'VC' : {'estimators': [
+        ('xt', ExtraTreesClassifier(random_state = seed, class_weight = 'balanced')), 
+        ('xgb', XGBClassifier(random_state = seed, objective = "binary:logistic", eval_metric = 'logloss',  scale_pos_weight=0.2)), 
+        ('lgb', LGBMClassifier(random_state = seed, class_weight='balanced'))],
+         'voting' :'soft'},
+    'LG' : {'random_state' : seed, 'n_estimators':200 }
+  }
+  if len(distrib.keys()) == 2:
+    first, second = list(distrib.values())
+    if first < second:
+      factor = round(float(first)/float(second), 2)
+    else:
+      factor = round(float(second)/float(first), 2)
+    classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', 'scale_pos_weight' : factor}
 else:
-  classifiers_args["XGB"] = {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss'}
+  classifiers_args = {
+    'RF' : {'random_state' : seed}, 
+    'MLP': {'random_state' : seed}, 
+    'SVM' : {'random_state' : seed}, 
+    'RUS': {'random_state' : seed},
+    'LGBM': {'random_state' : seed},
+    'EXT': {'random_state' : seed},
+    'XGB': {'random_state' : seed},
+    'VC' : {'estimators': [
+        ('xt', ExtraTreesClassifier(random_state = seed)), ('xgb', XGBClassifier(random_state = seed, objective = "binary:logistic", eval_metric = 'logloss')), ('lgb', LGBMClassifier(random_state = seed))],
+         'voting' :'hard'},
+    'LG' : {'random_state' : seed}
+  }
 
+## check method comaptibility
+if x.isnull().sum().sum() > 0 and args.method not in ['LGBM']:
+  print(bcolors.FAIL + f'ERR: Method "{args.method}" does not support NaN or Inf input values ... try using -I <imputation-mode>!' + bcolors.ENDC)
+  sys.exit(-1)
 """# k-fold cross validation with: SVM, RF, XGB, MLP, RUS
 
 """
 
 #@title Choose classifier { run: "auto", form-width: "20%" }
 method = args.method #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.compose import make_column_transformer
-from sklearn.pipeline import make_pipeline
-from sklearn.compose import make_column_selector as selector
-from sklearn.neural_network import MLPClassifier
-import sys
-from xgboost import XGBClassifier
-from sklearn.model_selection import StratifiedKFold, KFold, train_test_split
-from tqdm import tqdm
-from sklearn.metrics import *
-from sklearn.ensemble import AdaBoostClassifier
-from imblearn.ensemble import RUSBoostClassifier
-from sklearn.dummy import DummyClassifier
-from lightgbm import LGBMClassifier
-from logitboost import LogitBoost
-from tabulate import tabulate
+
 
 set_seed(seed)
 nfolds = 5
@@ -349,7 +405,7 @@ if args.removefeat:
   estimator = SVR(kernel="linear")
   selector = RFE(estimator, n_features_to_select=100, step=1)
   X = selector.fit_transform(X, y)
-  print(bcolors.OKGREEN + f'\tNew attribute matrix x{X.shape}' + bcolors.ENDC)
+  print(bcolors.OKGREEN + f'New attribute matrix x{X.shape}' + bcolors.ENDC)
 
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
@@ -361,13 +417,13 @@ predictions = np.array([], dtype=int)
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
 print(bcolors.HEADER + f'Classification with method "{method}"...' + bcolors.ENDC)
-print(bcolors.OKGREEN + f'\t\t- classifier params: {classifiers_args[method]}' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- classifier params: {classifiers_args[method]}' + bcolors.ENDC)
 for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y), total=kf.get_n_splits(), desc=bcolors.OKGREEN +  f"{nfolds}-fold")):
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
     yy = np.concatenate((yy, test_y))
     gg = np.concatenate((gg, genes[test_idx]))
-    clf = globals()[classifier_map[args.method]](**classifiers_args[args.method]) if args.tuneparams else globals()[classifier_map[args.method]]()
+    clf = globals()[classifier_map[args.method]](**classifiers_args[args.method])
     if args.proba:
       probs = clf.fit(train_x, train_y).predict_proba(test_x)
       preds = np.argmax(probs, axis=1)
