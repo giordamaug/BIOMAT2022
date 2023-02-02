@@ -41,6 +41,7 @@ from sklearn.dummy import DummyClassifier
 from lightgbm import LGBMClassifier
 from logitboost import LogitBoost
 from tabulate import tabulate
+from progress.counter import Stack
 
 parser = argparse.ArgumentParser(description='BIOMAT 2022 Workbench')
 parser.add_argument('-a', "--attributes", dest='attributes', metavar='<attributes>', nargs="+", default=["BIO", "EMBED"], choices=["BIO", "EMBED"], help='attributes to consider (default BIO EMBED, values BIO,EMBED)', required=False)
@@ -122,7 +123,7 @@ print(bcolors.OKGREEN + f'- working on label "{labelname}""...' + bcolors.ENDC)
 dup = df_label.index.duplicated().sum()
 if dup > 0:
     df_label = df_label[~df_label.index.duplicated(keep='first')]
-print(bcolors.OKGREEN + f'- removing {dup} duplicated genes...' + bcolors.ENDC)
+    print(bcolors.OKGREEN + f'- removing {dup} duplicated genes...' + bcolors.ENDC)
 genes = df_label.index.values                                                                    # get genes with defined labels
 df_label = df_label[df_label[labelname].isin([np.nan] + exclude_labels) == False]                # drop any row contaning NaN or SC1-SC5 as value
 labels = np.unique(df_label[labelname].values)
@@ -194,36 +195,46 @@ if "BIO" in args.attributes:
 
   def impute(x, realcolumns, bincolumns, mode):
     df = x.copy()
-    print(bcolors.OKGREEN + f'- fixing {int(df[realcolumns].isnull().sum().sum())} null values in {len(realcolumns)}/{len(df.columns)} real columns' + bcolors.ENDC)
+    #print(bcolors.OKGREEN + f'- fixing {int(df[realcolumns].isnull().sum().sum())} null values in {len(realcolumns)}/{len(df.columns)} real columns ... ' + bcolors.ENDC, end='')
+    p = Stack(bcolors.OKGREEN + f'- fixing {int(df[realcolumns].isnull().sum().sum())} null values in {len(realcolumns)}/{len(df.columns)} real columns ... ' + bcolors.ENDC, max=len(realcolumns))
     if mode == "mean":
-      for col in tqdm(realcolumns): 
-         mean_value= df[col].mean()
-         if np.isnan(mean_value):
+        for col in realcolumns: 
+          mean_value= df[col].mean()
+          if np.isnan(mean_value):
             df = df.drop(columns=[col])
-         else:
+          else:
             df[col].fillna(value=mean_value, inplace=True)
+          p.next()
     elif mode == "zero":
-      for col in df.columns: 
-         df[col].fillna(value=0, inplace=True)
+        for col in df.columns: 
+          df[col].fillna(value=0, inplace=True)
+        p.next()
     else:
       raise Exception(f'Imputation not supported "{mode}"!')
-    print(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns' + bcolors.ENDC)
-    for col in tqdm(bincolumns):
-        mostcommon = df[col].mode()[0] if len(df[col].mode()) > 0 else 0
-        df[col].fillna(value=mostcommon, inplace=True)
+    print(" done!")
+    #print(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns' + bcolors.ENDC, end='')
+    p = Stack(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns ... ' + bcolors.ENDC, max=len(bincolumns))
+    for col in bincolumns:
+      mostcommon = df[col].mode()[0] if len(df[col].mode()) > 0 else 0
+      df[col].fillna(value=mostcommon, inplace=True)
+      p.next()
+    print(" done!")
     print(bcolors.OKGREEN + f'- remaining {df.isnull().sum().sum()} null values' + bcolors.ENDC)
     return df
 
   def normalize(x, columns, mode):
     df = x.copy()
-    print(bcolors.OKGREEN + f'- applying normalization to {len(columns)} columns' + bcolors.ENDC)
-    for col in tqdm(columns):
+    #print(bcolors.OKGREEN + f'- applying normalization to {len(columns)} columns' + bcolors.ENDC, end='')
+    p = Stack(bcolors.OKGREEN + f'- applying normalization to {len(columns)} columns ... ' + bcolors.ENDC, max=len(columns))
+    for col in columns:
       if mode == 'minmax':
           df[col] = (df[col]-df[col].min())/(df[col].max()-df[col].min())
       elif args.normalize == 'zscore':
           df[col] = (df[col]-df[col].mean())/df[col].std()
       else:
           raise Exception(f'Imputation not supported "{mode}"!')
+      p.next()
+    print(" done!")
     return df
 
   if args.imputation is not None:
@@ -382,10 +393,7 @@ if x.isnull().sum().sum() > 0 and args.method not in ['LGBM']:
 
 """
 
-#@title Choose classifier { run: "auto", form-width: "20%" }
 method = args.method #@param ["SVM", "XGB", "RF", "MLP", "RUS", "LGB"]
-
-
 set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
@@ -394,7 +402,7 @@ genes = x.index.values
 X = x.to_numpy()
 if args.tocsv is not None:
   newd = x.copy()
-  newd['class'] = y
+  #newd['class'] = y
   newd.to_csv(os.path.join(datapath,args.tocsv), index=True)
   print(bcolors.HEADER + f'Saving dataset to file {args.tocsv}' + bcolors.ENDC)
 
