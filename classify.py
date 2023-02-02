@@ -224,8 +224,8 @@ if args.removefeat:
   selector = RFE(estimator=ExtraTreesClassifier(), n_features_to_select=args.nfeatures, step=100, verbose=1)
   selector = selector.fit(x, y)
   selected_features = selector.get_feature_names_out()
-  X = selector.tranform(x)
-  print(bcolors.OKGREEN + f'New attribute matrix x{x.shape}' + bcolors.ENDC)
+  X = selector.transform(x)
+  print(bcolors.OKGREEN + f'- New attribute matrix x{x.shape}' + bcolors.ENDC)
   if args.tocsv is not None:
     x[selected_features].to_csv(args.tocsv, index=True)
     print(bcolors.HEADER + f'Saving dataset to file {args.tocsv}' + bcolors.ENDC)
