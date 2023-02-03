@@ -50,6 +50,16 @@ args = parser.parse_args()
 seed=args.seed
 
 """
+Load labels
+"""
+
+label_file = args.labelfile #@param {type:"string"}
+df_label = pd.read_csv(label_file, sep=',', index_col=0)
+labelname = "label_wo_outliers"
+print(bcolors.HEADER + f'Loading label "{labelname}" from file "{label_file}"...' + bcolors.ENDC)
+print(bcolors.OKGREEN + f'- label distribution: {dict(df_label[labelname].value_counts())}' + bcolors.ENDC)
+
+"""
 Load attributes
 """
 
@@ -64,16 +74,7 @@ for attr_file in args.inputfile[1:]:
   df = df.select_dtypes(include=np.number)     # drop non numeric attributes
   print(bcolors.HEADER + f'{df.shape}' + bcolors.ENDC)
   x = x.join(df)
-
-"""
-Load labels
-"""
-
-label_file = args.labelfile #@param {type:"string"}
-df_label = pd.read_csv(label_file, sep=',', index_col=0)
-labelname = "label_wo_outliers"
-print(bcolors.HEADER + f'Loading label "{labelname}" from file "{label_file}"...' + bcolors.ENDC)
-print(bcolors.OKGREEN + f'- label distribution: {dict(df_label[labelname].value_counts())}' + bcolors.ENDC)
+x = x.loc[df_label.index]
 
 
 ### set balancing in method paramters
