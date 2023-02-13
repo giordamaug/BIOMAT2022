@@ -205,20 +205,21 @@ if "BIO" in args.attributes:
           else:
             df[col].fillna(value=mean_value, inplace=True)
           p.next()
+        print(bcolors.OKGREEN + " done!" + bcolors.ENDC,)
     elif mode == "zero":
         for col in df.columns: 
           df[col].fillna(value=0, inplace=True)
         p.next()
+        print(bcolors.OKGREEN + " done!" + bcolors.ENDC,)
     else:
       raise Exception(f'Imputation not supported "{mode}"!')
-    print(" done!")
     #print(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns' + bcolors.ENDC, end='')
     p = Stack(bcolors.OKGREEN + f'- fixing {int(df[bincolumns].isnull().sum().sum())} null values in {len(bincolumns)}/{len(df.columns)} binary columns ... ' + bcolors.ENDC, max=len(bincolumns))
     for col in bincolumns:
       mostcommon = df[col].mode()[0] if len(df[col].mode()) > 0 else 0
       df[col].fillna(value=mostcommon, inplace=True)
       p.next()
-    print(" done!")
+    if len(bincolumns) >  0: print(bcolors.OKGREEN + " done!" + bcolors.ENDC,) 
     print(bcolors.OKGREEN + f'- remaining {df.isnull().sum().sum()} null values' + bcolors.ENDC)
     return df
 
