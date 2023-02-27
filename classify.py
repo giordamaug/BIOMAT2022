@@ -67,6 +67,7 @@ parser.add_argument('-x', "--excludelabels", dest='excludelabels', metavar='<exc
 parser.add_argument('-a', "--aliases", dest='aliases', default="{}", metavar='<aliases>', required=False)
 parser.add_argument('-X', "--removefeat", action='store_true', required=False)
 parser.add_argument('-F', "--nfeatures", dest='nfeatures',  metavar='<nfeatures>', type=int, help='number of features for elimination (default: 100)' , default=100, required=False)
+parser.add_argument('-s', "--step", dest='step',  metavar='<step>', type=int, help='feature  elimination step (default: 100)' , default=100, required=False)
 parser.add_argument('-D', "--tocsv", dest="tocsv", type=str, required=False)
 args = parser.parse_args()
 

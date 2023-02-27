@@ -235,7 +235,7 @@ if "BIO" in args.attributes:
       else:
           raise Exception(f'Imputation not supported "{mode}"!')
       p.next()
-    print(" done!")
+    print(bcolors.OKGREEN + " done!" + bcolors.ENDC,)
     return df
 
   if args.imputation is not None:
@@ -254,7 +254,7 @@ if "BIO" in args.attributes:
   print(bcolors.OKGREEN + f'- new attribute matrix x{x.shape}' + bcolors.ENDC)
   from pprint import pformat
   from textwrap import indent
-  print(bcolors.OKGREEN + f'- using attributes:\n' + indent(pformat(list(x.columns)),'') + bcolors.ENDC) if len(list(x.columns)) < 50 else None
+  #print(bcolors.OKGREEN + f'- using attributes:\n' + indent(pformat(list(x.columns)),'') + bcolors.ENDC) if len(list(x.columns)) < 50 else None
 else:
   x = pd.DataFrame()
 
@@ -457,6 +457,11 @@ plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
 if args.proba:
   df_results = pd.DataFrame({ 'gene': gg, 'label': yy, 'E_prob': probabilities, 'prediction': predictions})
+  df_results = df_results.set_index(['gene'])
+  df_results.to_csv('results.csv')
+  print(df_results)
+else:
+  df_results = pd.DataFrame({ 'gene': gg, 'label': yy, 'prediction': predictions})
   df_results = df_results.set_index(['gene'])
   df_results.to_csv('results.csv')
   print(df_results)
