@@ -250,7 +250,7 @@ clf = globals()[classifier_map[args.method]]()
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
-gg = np.array()
+gg = np.array([])
 yy = np.array([], dtype=np.int)
 predictions = np.array([])
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
