@@ -240,6 +240,7 @@ set_seed(seed)
 nfolds = 5
 kf = StratifiedKFold(n_splits=nfolds, shuffle=True, random_state=seed)
 accuracies, mccs = [], []
+genes = x.index.values
 X = x.to_numpy()
 if args.tocsv:
   newd = x.copy()
@@ -250,6 +251,8 @@ clf = globals()[classifier_map[args.method]]()
 nclasses = len(classes_mapping)
 cma = np.zeros(shape=(nclasses,nclasses), dtype=np.int)
 mm = np.array([], dtype=np.int)
+gg = np.array([])
+yy = np.array([], dtype=np.int)
 predictions = np.array([])
 columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
@@ -259,6 +262,8 @@ for fold, (train_idx, test_idx) in enumerate(tqdm(kf.split(np.arange(len(X)), y)
     train_x, train_y, test_x, test_y = X[train_idx], y[train_idx], X[test_idx], y[test_idx],
     mm = np.concatenate((mm, test_idx))
     preds = clf.fit(train_x, train_y).predict(test_x)
+    gg = np.concatenate((gg, genes[test_idx]))
+    yy = np.concatenate((yy, test_y))
     cm = confusion_matrix(test_y, preds)
     cma += cm.astype(int)
     predictions = np.concatenate((predictions, preds))
@@ -275,3 +280,7 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cma,display_labels=encoder.invers
 disp.plot()
 plt.show() if args.display else None
 print(bcolors.OKGREEN +  tabulate(df_scores, headers='keys', tablefmt='psql') + bcolors.ENDC)
+df_results = pd.DataFrame({ 'gene': gg, 'label': yy, 'prediction': predictions})
+df_results = df_results.set_index(['gene'])
+df_results.to_csv('results.csv')
+print(df_results)
