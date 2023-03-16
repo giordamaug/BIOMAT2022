@@ -323,7 +323,7 @@ yy = np.array([], dtype=np.int)
 accuracies, mccs = [], []
 probabilities = np.array([])
 predictions = np.array([], dtype=int)
-columns_names = ["Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
+columns_names = ["AUC", "Accuracy","BA", "Sensitivity", "Specificity","MCC", 'CM']
 scores = pd.DataFrame(columns=columns_names)
 
 def do_cv(nfolds, seed):
@@ -343,7 +343,7 @@ def do_cv(nfolds, seed):
       yy = np.concatenate((yy, test_y))
       gg = np.concatenate((gg, genes[test_idx]))
       predictions = np.concatenate((predictions, preds))
-      scores = pd.concat([scores, pd.DataFrame([[accuracy_score(test_y, preds), balanced_accuracy_score(test_y, preds), 
+      scores = pd.concat([scores, pd.DataFrame([[roc_auc_score(test_y, preds), accuracy_score(test_y, preds), balanced_accuracy_score(test_y, preds), 
           cm[0,0]/(cm[0,0]+cm[0,1]), cm[1,1]/(cm[1,0]+cm[1,1]), 
           matthews_corrcoef(test_y, preds), cm]], columns=columns_names, index=[fold])])
   return mm, yy, gg, predictions, scores
