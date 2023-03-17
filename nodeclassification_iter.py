@@ -78,7 +78,7 @@ parser.add_argument('-b', "--seed", dest='seed', metavar='<seed>', type=int, hel
 parser.add_argument('-r', "--repeat", dest='repeat', metavar='<repeat>', type=int, help='n. of iteration (default: 1)' , default=1, required=False)
 parser.add_argument('-f', "--folds", dest='folds', metavar='<folds>', type=int, help='n. of cv folds (default: 5)' , default=5, required=False)
 parser.add_argument('-j', "--jobs", dest='jobs', metavar='<jobs>', type=int, help='n. of parallel jobs (default: -1)' , default=-1, required=False)
-parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP|LG|EXT|VC)', choices=['VC', 'RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'EXT', 'MLP', 'WNN', 'LG'], default='RF', required=False)
+parser.add_argument('-m', "--method", dest='method', metavar='<method>', type=str, help='classifier name (default: RF, choice: RF|SVM|XGB|LGBM|MLP|LG|EXT|VC)', choices=['DUM', 'VC', 'RF', 'RUS', 'SVM', 'XGB', 'LGBM', 'EXT', 'MLP', 'WNN', 'LG'], default='RF', required=False)
 parser.add_argument('-Q', "--removefeat", action='store_true', required=False)
 args = parser.parse_args()
 
@@ -271,6 +271,7 @@ classifier_map = {'RF' : 'RandomForestClassifier',
                   'EXT': 'ExtraTreesClassifier',
                   'LGBM': 'LGBMClassifier',
                   'VC' : 'VotingClassifier',
+                  'DUM' : 'DummyClassifier',
                   'LG': 'LogitBoost'}
 
 classifiers_args = {
@@ -281,6 +282,7 @@ classifiers_args = {
     'LGBM': {'random_state' : seed, 'class_weight': 'balanced'},
     'EXT': {'random_state' : seed, 'class_weight': 'balanced'},
     'XGB': {'random_state' : seed, 'objective' : "binary:logistic", 'eval_metric' : 'logloss', },
+    'DUM': {'strategy': 'stratified'},
     'VC' : {'estimators': [
         ('xt', ExtraTreesClassifier(random_state = seed, class_weight = 'balanced')), 
         ('xgb', XGBClassifier(random_state = seed, objective = "binary:logistic", eval_metric = 'logloss',  scale_pos_weight=0.2)), 
